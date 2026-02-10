@@ -1,0 +1,250 @@
+// CSV Import Utility using PapaParse
+import Papa from 'papaparse';
+import { bulkImportEvents } from './db';
+
+// Column mapping configurations
+const COLUMN_MAPPINGS = {
+    collegeName: ['college name', 'college', 'institution', 'university'],
+    eventName: ['event name', 'event', 'name', 'title'],
+    eventType: ['event type', 'type', 'category'],
+    registrationDeadline: ['registration deadline', 'deadline', 'reg deadline', 'last date'],
+    startDate: ['start date', 'from date', 'event date', 'date'],
+    endDate: ['end date', 'to date', 'closing date'],
+    prizeAmount: ['prize', 'prize amount', 'prize money', 'reward'],
+    registrationFee: ['fee', 'registration fee', 'entry fee', 'cost'],
+    accommodation: ['accommodation', 'stay', 'hostel'],
+    location: ['location', 'venue', 'place', 'city'],
+    isOnline: ['online', 'mode', 'virtual'],
+    contactNumbers: ['contact', 'phone', 'mobile', 'contact number'],
+    posterUrl: ['poster', 'poster link', 'image', 'poster url'],
+    website: ['website', 'url', 'link', 'registration link'],
+    description: ['description', 'details', 'about'],
+    teamSize: ['team size', 'team', 'members'],
+    eligibility: ['eligibility', 'eligible', 'criteria']
+};
+
+// Normalize column name
+const normalizeColumnName = (column) => {
+    return column.toLowerCase().trim();
+};
+
+// Find matching field for a column
+const findMatchingField = (column) => {
+    const normalized = normalizeColumnName(column);
+
+    for (const [field, variations] of Object.entries(COLUMN_MAPPINGS)) {
+        if (variations.includes(normalized)) {
+            return field;
+        }
+    }
+
+    return null;
+};
+
+// Parse date string
+export const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+
+    // Try ISO format first
+    const isoDate = new Date(dateStr);
+    if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+    }
+
+    // Try DD/MM/YYYY or DD-MM-YYYY or MM/DD/YYYY
+    const parts = dateStr.split(/[/-]/).map(p => parseInt(p, 10));
+    if (parts.length === 3) {
+        // Greedy attempt 1: DD/MM/YYYY
+        let d1 = new Date(parts[2], parts[1] - 1, parts[0]);
+        // Greedy attempt 2: MM/DD/YYYY
+        let d2 = new Date(parts[2], parts[0] - 1, parts[1]);
+
+        // If both are valid, pick the one that makes more sense (if day > 12, it must be DD/MM/YYYY)
+        if (!isNaN(d1.getTime()) && parts[0] > 12) return d1;
+        if (!isNaN(d2.getTime()) && parts[1] > 12) return d2;
+
+        // Default to d1 if valid
+        if (!isNaN(d1.getTime())) return d1;
+    }
+
+    return null;
+};
+
+// Parse boolean value
+const parseBoolean = (value) => {
+    if (typeof value === 'boolean') return value;
+    const str = String(value).toLowerCase().trim();
+    return ['yes', 'true', '1', 'y'].includes(str);
+};
+
+// Parse number value
+const parseNumber = (value) => {
+    if (typeof value === 'number') return value;
+    const num = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+    return isNaN(num) ? 0 : num;
+};
+
+// Parse contact numbers
+const parseContacts = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    return String(value).split(/[,;]/).map(c => c.trim()).filter(Boolean);
+};
+
+// Transform row to event object
+export const transformRow = (row, columnMapping) => {
+    const event = {};
+
+    for (const [csvColumn, field] of Object.entries(columnMapping)) {
+        const value = row[csvColumn];
+
+        if (value === undefined || value === null) continue;
+
+        switch (field) {
+            case 'registrationDeadline':
+            case 'startDate':
+            case 'endDate':
+                event[field] = parseDate(value);
+                break;
+
+            case 'prizeAmount':
+            case 'registrationFee':
+            case 'teamSize':
+                event[field] = parseNumber(value);
+                break;
+
+            case 'accommodation':
+            case 'isOnline':
+                event[field] = parseBoolean(value);
+                break;
+
+            case 'contactNumbers':
+                event[field] = parseContacts(value);
+                break;
+
+            default:
+                event[field] = String(value).trim();
+        }
+    }
+
+    // Set defaults for required fields
+    if (!event.collegeName) event.collegeName = 'Unknown College';
+    if (!event.eventName) event.eventName = 'Untitled Event';
+    if (!event.eventType) event.eventType = 'Other';
+
+    // Fallback for dates if they were null
+    const now = new Date();
+    if (!event.registrationDeadline) event.registrationDeadline = now;
+    if (!event.startDate) event.startDate = now;
+    if (!event.endDate) event.endDate = event.startDate || now;
+
+    return event;
+};
+
+// Auto-detect column mapping
+export const autoDetectMapping = (headers) => {
+    const mapping = {};
+
+    headers.forEach(header => {
+        const field = findMatchingField(header);
+        if (field) {
+            mapping[header] = field;
+        }
+    });
+
+    return mapping;
+};
+
+// Parse CSV file
+export const parseCSVFile = (file) => {
+    return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                if (results.errors.length > 0) {
+                    console.warn('CSV parsing warnings:', results.errors);
+                }
+                resolve(results);
+            },
+            error: (error) => {
+                reject(error);
+            }
+        });
+    });
+};
+
+// Import CSV and save to database
+export const importCSV = async (file, customMapping = null) => {
+    try {
+        const results = await parseCSVFile(file);
+
+        if (!results.data || results.data.length === 0) {
+            throw new Error('No data found in CSV file');
+        }
+
+        // Auto-detect or use custom mapping
+        const headers = Object.keys(results.data[0]);
+        const columnMapping = customMapping || autoDetectMapping(headers);
+
+        // Transform rows to events
+        const events = results.data.map(row => transformRow(row, columnMapping));
+
+        // Bulk import to database
+        const count = await bulkImportEvents(events);
+
+        return {
+            success: true,
+            count,
+            events,
+            mapping: columnMapping
+        };
+    } catch (error) {
+        console.error('CSV import error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+};
+
+// Export events to CSV
+export const exportToCSV = (events) => {
+    const csv = Papa.unparse(events, {
+        header: true,
+        columns: [
+            'College Name',
+            'Event Name',
+            'Event Type',
+            'Registration Deadline',
+            'Start Date',
+            'End Date',
+            'Prize Amount',
+            'Registration Fee',
+            'Accommodation',
+            'Location',
+            'Online',
+            'Status',
+            'Priority Score',
+            'Website',
+            'Contact'
+        ]
+    });
+
+    return csv;
+};
+
+// Download CSV file
+export const downloadCSV = (csvContent, filename = 'events.csv') => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};

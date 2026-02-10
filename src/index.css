@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply font-sans antialiased bg-gray-50 text-gray-900 dark:bg-[#0f172a] dark:text-gray-100;
+    }
+}
+
+@layer components {
+
+    /* Glassmorphic Styles */
+    .glass {
+        @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-white/10;
+    }
+
+    .glass-card {
+        @apply glass rounded-2xl shadow-xl shadow-black/5 dark:shadow-black/20;
+    }
+
+    /* Card Styles */
+    .card {
+        @apply bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 transition-all duration-300;
+    }
+
+    .card-hover {
+        @apply hover:shadow-xl hover:shadow-primary-500/10 hover:-translate-y-1 cursor-pointer active:scale-[0.98];
+    }
+
+    /* Button Styles */
+    .btn {
+        @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2 active:scale-95;
+    }
+
+    .btn-primary {
+        @apply bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 hover:brightness-110 focus:ring-indigo-500;
+    }
+
+    .btn-secondary {
+        @apply bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600;
+    }
+
+    .btn-ghost {
+        @apply hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100;
+    }
+
+    /* Input Styles */
+    .input {
+        @apply w-full px-4 py-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50/50 dark:bg-slate-900/50 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all;
+    }
+
+    .label {
+        @apply block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 ml-1;
+    }
+
+    /* Badge Styles */
+    .badge {
+        @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm;
+    }
+
+    .badge-open {
+        @apply bg-emerald-100/80 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30;
+    }
+
+    .badge-deadline-today {
+        @apply bg-rose-100/80 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 animate-pulse;
+    }
+
+    .badge-closed {
+        @apply bg-slate-100/80 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400 border border-slate-200 dark:border-slate-500/30;
+    }
+
+    .badge-completed {
+        @apply bg-blue-100/80 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30;
+    }
+
+    /* Priority Badge */
+    .priority-high {
+        @apply bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/20;
+    }
+
+    .priority-medium {
+        @apply bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20;
+    }
+
+    .priority-low {
+        @apply bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/20;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors;
+}
+
+/* Animations */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.animate-shimmer {
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.05) 50%,
+            rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* Page Transitions */
+.page-enter {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.page-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 300ms, transform 300ms;
+}
+
+/* RedDot Watermark System */
+.reddot-watermark {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    pointer-events: none;
+    z-index: 9999;
+    font-family: inherit;
+    font-weight: 900;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    opacity: 0.6;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #ef4444;
+    text-transform: uppercase;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(12px);
+    padding: 0.6rem 1.2rem;
+    border-radius: 99px;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.reddot-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    background-color: #ef4444;
+    border-radius: 9999px;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 1);
+    animation: reddot-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes reddot-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: bightness(1);
+    }
+
+    50% {
+        opacity: .4;
+        transform: scale(0.7);
+        filter: brightness(1.5);
+    }
+}
