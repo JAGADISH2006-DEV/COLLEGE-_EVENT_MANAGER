@@ -12,7 +12,7 @@
  * 5. Paste the Deployment URL in App Settings
  */
 
-import { bulkImportEvents, getAllEvents } from './db';
+import { bulkImportEvents, getAllEvents } from '../db';
 
 const STORAGE_KEY = 'google_script_url';
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxIom3bOpujhk0ITh7Sq2mgN5cpPDlfb4uUmPDWA1hH5zRdU5j-kawlaxpBFzrWNm5ZQw/exec';
