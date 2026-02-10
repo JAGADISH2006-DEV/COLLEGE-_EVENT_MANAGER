@@ -2,8 +2,9 @@ import React from 'react';
 import { useAppStore } from '../store';
 import { db, exportEventsToCSV } from '../db';
 import { exportToCSV, downloadCSV } from '../csvUtils';
+import { getGoogleScriptUrl, setGoogleScriptUrl, syncFromSheet, syncToSheet } from '../services/googleSheets';
 import { requestNotificationPermission } from '../notifications';
-import { Bell, Download, Trash2, Moon, Sun, Shield, Database, Smartphone, RefreshCw, Clock } from 'lucide-react';
+import { Bell, Download, Trash2, Moon, Sun, Shield, Database, Smartphone, RefreshCw } from 'lucide-react';
 import { cn } from '../utils';
 
 const Settings = () => {
@@ -11,6 +12,51 @@ const Settings = () => {
     const toggleTheme = useAppStore((state) => state.toggleTheme);
     const preferences = useAppStore((state) => state.preferences);
     const updatePreferences = useAppStore((state) => state.updatePreferences);
+    const [scriptUrl, setScriptUrlState] = React.useState(getGoogleScriptUrl());
+    const [isSyncing, setIsSyncing] = React.useState(false);
+
+    const handleSaveScriptUrl = () => {
+        try {
+            setGoogleScriptUrl(scriptUrl);
+            alert('Cloud Database URL Saved!');
+        } catch (e) {
+            alert(e.message);
+        }
+    };
+
+    const handleSyncFromValues = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await syncFromSheet();
+            if (result.success) {
+                alert(`Sync Complete!\nAdded: ${result.imported}\nUpdated: ${result.updated}`);
+                window.location.reload();
+            } else {
+                alert('Sync Failed: ' + result.error);
+            }
+        } catch (e) {
+            alert('Sync Error: ' + e.message);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleSyncToValues = async () => {
+        if (!confirm('This will overwrite the Google Sheet with local data. Continue?')) return;
+        setIsSyncing(true);
+        try {
+            const result = await syncToSheet();
+            if (result.success) {
+                alert(`Upload Complete!\nEvents Synced: ${result.count}`);
+            } else {
+                alert('Upload Failed: ' + result.error);
+            }
+        } catch (e) {
+            alert('Upload Error: ' + e.message);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const handleExport = async () => {
         try {
@@ -154,58 +200,61 @@ const Settings = () => {
             </SettingSection>
 
             {/* Google Sheets Sync */}
+            {/* Google Sheets Sync */}
             <SettingSection
-                title="Live Cloud Sync"
-                description="Connect your Google Sheet for real-time updates"
+                title="Google Cloud Database"
+                description="Connect your Google Sheet for real-time team sync"
                 icon={RefreshCw}
             >
                 <div className="space-y-6">
-                    <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/50">
-                        <label className="text-xs font-black uppercase tracking-widest text-emerald-600 block mb-3">Google Sheet URL (Public CSV)</label>
-                        <div className="flex gap-3">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <label className="text-xs font-black uppercase tracking-widest text-indigo-600 block mb-3">Google Apps Script URL</label>
+                        <div className="flex gap-3 mb-4">
                             <input
                                 type="url"
-                                value={useAppStore.getState().googleSheetUrl}
-                                onChange={(e) => useAppStore.getState().setGoogleSheetUrl(e.target.value)}
-                                className="input flex-1"
-                                placeholder="https://docs.google.com/spreadsheets/d/your-id/edit"
+                                value={scriptUrl}
+                                onChange={(e) => setScriptUrlState(e.target.value)}
+                                className="input flex-1 font-mono text-xs"
+                                placeholder="https://script.google.com/macros/s/.../exec"
                             />
                             <button
-                                onClick={async () => {
-                                    try {
-                                        await useAppStore.getState().syncFromGoogleSheet();
-                                        alert('Google Sheet Synchronized Successfully!');
-                                    } catch (err) {
-                                        alert('Sync Failed: ' + err.message);
-                                    }
-                                }}
-                                disabled={useAppStore(state => state.isSyncing)}
-                                className={cn(
-                                    "btn px-6 font-bold flex items-center gap-2",
-                                    useAppStore(state => state.isSyncing)
-                                        ? "bg-slate-200 text-slate-400"
-                                        : "bg-emerald-600 text-white hover:bg-emerald-700"
-                                )}
+                                onClick={handleSaveScriptUrl}
+                                className="btn bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 font-bold"
                             >
-                                {useAppStore(state => state.isSyncing) ? (
-                                    <RefreshCw className="animate-spin" size={18} />
-                                ) : (
-                                    <Download size={18} />
-                                )}
-                                Sync Now
+                                Save
                             </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-4 italic">
-                            * Ensure your Google Sheet is shared as "Anyone with the link can view". The website reads the data in real-time.
-                        </p>
-                    </div>
 
-                    {useAppStore.getState().lastSyncTime && (
-                        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium px-1">
-                            <Clock size={12} />
-                            Last sync: {new Date(useAppStore.getState().lastSyncTime).toLocaleString()}
+                        <div className="flex gap-4">
+                            <button
+                                onClick={handleSyncFromValues}
+                                disabled={isSyncing}
+                                className={cn(
+                                    "btn flex-1 py-3 font-bold flex items-center justify-center gap-2",
+                                    isSyncing ? "opacity-50" : "bg-emerald-600 text-white hover:bg-emerald-700"
+                                )}
+                            >
+                                <Download size={18} />
+                                {isSyncing ? 'Syncing...' : 'Pull from Cloud'}
+                            </button>
+                            <button
+                                onClick={handleSyncToValues}
+                                disabled={isSyncing}
+                                className={cn(
+                                    "btn flex-1 py-3 font-bold flex items-center justify-center gap-2",
+                                    isSyncing ? "opacity-50" : "bg-indigo-600 text-white hover:bg-indigo-700"
+                                )}
+                            >
+                                <Database size={18} />
+                                {isSyncing ? 'Syncing...' : 'Push to Cloud'}
+                            </button>
                         </div>
-                    )}
+
+                        <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 text-xs rounded-lg border border-amber-100 dark:border-amber-800/50">
+                            <strong>Setup Info:</strong> Deploy the provided GAS script as a Web App to get the URL.
+                            Ensure "Who has access" is set to "Anyone".
+                        </div>
+                    </div>
                 </div>
             </SettingSection>
 
