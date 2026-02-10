@@ -25,6 +25,8 @@ A Progressive Web Application (PWA) designed to replace Excel-based event tracki
   - Online vs Offline
 - 🎯 **Advanced Filtering** - Search, status, type, date range
 - 🌓 **Dark Mode** - Eye-friendly theme switching
+- 🤖 **Neural Vision Engine (AI)** - Built-in OCR using Tesseract.js to scan posters and auto-fill event details
+- 📡 **Google Sheets Sync** - Sync events directly from a Google Sheet CSV URL
 
 ---
 
