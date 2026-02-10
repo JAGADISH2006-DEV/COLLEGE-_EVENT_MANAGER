@@ -4,14 +4,21 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
     plugins: [
-        react(),
+        react({
+            // Enable Fast Refresh for better dev experience
+            fastRefresh: true,
+            // Optimize babel for production
+            babel: {
+                compact: true,
+            }
+        }),
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
             manifest: {
-                name: 'College Event Manager',
+                name: 'Event Manager',
                 short_name: 'EventManager',
-                description: 'Offline-first event management for engineering students',
+                description: 'Offline-first event management for students',
                 theme_color: '#4f46e5',
                 background_color: '#ffffff',
                 display: 'standalone',
@@ -34,6 +41,8 @@ export default defineConfig({
             },
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
+                // Increase cache size for better offline support
+                maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
                 runtimeCaching: [
                     {
                         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -48,13 +57,56 @@ export default defineConfig({
                                 statuses: [0, 200]
                             }
                         }
+                    },
+                    {
+                        // Cache CDN resources (like Tesseract)
+                        urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'cdn-cache',
+                            expiration: {
+                                maxEntries: 20,
+                                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                            }
+                        }
                     }
                 ]
             }
         })
     ],
+    build: {
+        // Optimize chunk size
+        chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+            output: {
+                // Manual chunk splitting for better caching
+                manualChunks: {
+                    'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+                    'ui-vendor': ['framer-motion', 'lucide-react'],
+                    'db-vendor': ['dexie', 'dexie-react-hooks'],
+                    'utils': ['date-fns', 'papaparse', 'zustand']
+                }
+            }
+        },
+        // Enable minification
+        minify: 'terser',
+        terserOptions: {
+            compress: {
+                drop_console: true, // Remove console logs in production
+                drop_debugger: true
+            }
+        },
+        // Source maps for debugging (disable in production for smaller bundle)
+        sourcemap: false
+    },
     server: {
         port: 3000,
-        open: true
+        open: true,
+        // Enable compression
+        compress: true
+    },
+    // Optimize dependencies
+    optimizeDeps: {
+        include: ['react', 'react-dom', 'react-router-dom', 'dexie', 'framer-motion']
     }
 });

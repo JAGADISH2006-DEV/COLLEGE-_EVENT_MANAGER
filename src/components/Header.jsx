@@ -24,8 +24,8 @@ const Header = () => {
                     {/* Logo */}
                     <div className="flex items-center">
                         <Link to="/" className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">CE</span>
+                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">JD</span>
                             </div>
                             <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">
                                 Event Manager

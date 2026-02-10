@@ -22,14 +22,14 @@ const Analytics = () => {
             byStatus[e.status] = (byStatus[e.status] || 0) + 1;
         });
 
-        const totalPrize = events.reduce((sum, e) => sum + e.prizeAmount, 0);
-        const totalFees = events.reduce((sum, e) => sum + e.registrationFee, 0);
+        const totalPrize = events.reduce((sum, e) => sum + (parseFloat(e.prizeAmount) || 0), 0);
+        const totalFees = events.reduce((sum, e) => sum + (parseFloat(e.registrationFee) || 0), 0);
         const avgPrize = totalPrize / total;
 
         const wonEvents = events.filter(e => e.status === 'Won');
-        const wonPrize = wonEvents.reduce((sum, e) => sum + e.prizeAmount, 0);
+        const wonPrize = wonEvents.reduce((sum, e) => sum + (parseFloat(e.prizeAmount) || 0), 0);
         const paidFees = events.filter(e => e.status === 'Attended' || e.status === 'Won')
-            .reduce((sum, e) => sum + e.registrationFee, 0);
+            .reduce((sum, e) => sum + (parseFloat(e.registrationFee) || 0), 0);
         const roi = paidFees > 0 ? ((wonPrize - paidFees) / paidFees * 100) : 0;
 
         const online = events.filter(e => e.isOnline).length;

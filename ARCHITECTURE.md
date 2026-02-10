@@ -1,4 +1,4 @@
-# 🏗️ College Event Manager - Architecture Documentation
+# 🏗️ Event Manager - Architecture Documentation
 
 ## System Architecture Overview
 

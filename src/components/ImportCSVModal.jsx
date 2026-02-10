@@ -139,8 +139,18 @@ const ImportCSVModal = () => {
                                         <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                                             Import Successful!
                                         </h4>
-                                        <p className="text-gray-600 dark:text-gray-400">
-                                            Successfully imported {result.count} events
+                                        <div className="flex justify-center gap-6 mt-4">
+                                            <div className="text-center">
+                                                <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{result.count.added}</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">New Added</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-2xl font-black text-violet-600 dark:text-violet-400">{result.count.updated}</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Updated</p>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+                                            {result.count.added + result.count.updated} total events processed
                                         </p>
                                     </>
                                 ) : (

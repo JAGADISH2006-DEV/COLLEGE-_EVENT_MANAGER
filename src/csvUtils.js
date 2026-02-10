@@ -11,15 +11,21 @@ const COLUMN_MAPPINGS = {
     startDate: ['start date', 'from date', 'event date', 'date'],
     endDate: ['end date', 'to date', 'closing date'],
     prizeAmount: ['prize', 'prize amount', 'prize money', 'reward'],
-    registrationFee: ['fee', 'registration fee', 'entry fee', 'cost'],
-    accommodation: ['accommodation', 'stay', 'hostel'],
+    registrationFee: ['fee', 'registration fee', 'reg fee', 'entry fee', 'cost'],
+    accommodation: ['accommodation', 'stay', 'hostel', 'acm'],
     location: ['location', 'venue', 'place', 'city'],
     isOnline: ['online', 'mode', 'virtual'],
     contactNumbers: ['contact', 'phone', 'mobile', 'contact number'],
-    posterUrl: ['poster', 'poster link', 'image', 'poster url'],
+    contact1: ['contact - 1', 'contact1'],
+    contact2: ['contact - 2', 'contact2'],
+    posterUrl: ['poster', 'poster link', 'image', 'poster url', 'posters'],
     website: ['website', 'url', 'link', 'registration link'],
     description: ['description', 'details', 'about'],
-    teamSize: ['team size', 'team', 'members'],
+    teamSize: ['team size', 'team'],
+    leader: ['leader'],
+    members: ['members'],
+    noOfTeams: ['no of teams', 'no. of teams'],
+    prizeWon: ['price won', 'prize won'],
     eligibility: ['eligibility', 'eligible', 'criteria']
 };
 
@@ -120,6 +126,19 @@ export const transformRow = (row, columnMapping) => {
 
             case 'contactNumbers':
                 event[field] = parseContacts(value);
+                break;
+
+            case 'leader':
+            case 'members':
+            case 'noOfTeams':
+            case 'prizeWon':
+            case 'contact1':
+            case 'contact2':
+            case 'posterUrl':
+            case 'description':
+            case 'eligibility':
+            case 'website':
+                event[field] = String(value).trim();
                 break;
 
             default:
@@ -227,7 +246,17 @@ export const exportToCSV = (events) => {
             'Status',
             'Priority Score',
             'Website',
-            'Contact'
+            'Description',
+            'Team Size',
+            'Eligibility',
+            'Leader',
+            'Members',
+            'No of Teams',
+            'Prize Won',
+            'Contact 1',
+            'Contact 2',
+            'Poster URL',
+            'Contact Numbers'
         ]
     });
 

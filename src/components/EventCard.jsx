@@ -3,9 +3,8 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '../store';
 import { Calendar, MapPin, Trophy, Clock, ExternalLink, ChevronRight, Share2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
-import { cn } from '../utils';
+import { cn, resolveImageUrl } from '../utils';
 
-// Safe Utilities
 const safeFormat = (date, formatStr) => {
     try {
         const d = new Date(date);
@@ -26,7 +25,55 @@ const safeDiff = (date) => {
     }
 };
 
-const EventCard = ({ event }) => {
+const PosterImage = ({ event }) => {
+    const [imgSrc, setImgSrc] = React.useState(null);
+
+    React.useEffect(() => {
+        let objectUrl = null;
+
+        if (event.posterBlob instanceof Blob) {
+            objectUrl = URL.createObjectURL(event.posterBlob);
+            setImgSrc(objectUrl);
+        } else if (typeof event.posterBlob === 'string' && event.posterBlob) {
+            setImgSrc(resolveImageUrl(event.posterBlob));
+        } else if (event.posterUrl) {
+            setImgSrc(resolveImageUrl(event.posterUrl));
+        } else {
+            setImgSrc(null);
+        }
+
+        return () => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [event.posterBlob, event.posterUrl]);
+
+    if (!imgSrc) {
+        return (
+            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-inner group-hover/img:scale-105 transition-transform duration-500">
+                <div className="flex flex-col items-center gap-2 opacity-40">
+                    <Calendar size={40} className="text-white" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-tighter">No Poster</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={imgSrc}
+            alt={event.eventName}
+            className="w-full h-full object-cover rounded-2xl shadow-md group-hover/img:scale-105 transition-transform duration-500"
+            onError={(e) => {
+                console.warn(`[Poster Error] Failed to load image: ${imgSrc}`);
+                setImgSrc(null);
+            }}
+        />
+    );
+};
+
+const EventCard = React.memo(({ event }) => {
     const setSelectedEvent = useAppStore((state) => state.setSelectedEvent);
     const openModal = useAppStore((state) => state.openModal);
 
@@ -44,7 +91,8 @@ const EventCard = ({ event }) => {
             'Closed': 'badge-closed',
             'Completed': 'badge-completed',
             'Attended': 'badge-attended',
-            'Won': 'badge-won'
+            'Won': 'badge-won',
+            'Blocked': 'badge-blocked'
         };
         return styles[status] || 'badge-closed';
     };
@@ -73,17 +121,7 @@ const EventCard = ({ event }) => {
             <div className="flex flex-col sm:flex-row gap-6">
                 {/* Poster Thumbnail */}
                 <div className="flex-shrink-0 w-full sm:w-28 h-48 sm:h-36 relative group/img">
-                    {(event.posterUrl || event.posterBlob) ? (
-                        <img
-                            src={event.posterBlob instanceof Blob ? URL.createObjectURL(event.posterBlob) : (typeof event.posterBlob === 'string' ? event.posterBlob : event.posterUrl)}
-                            alt={event.eventName}
-                            className="w-full h-full object-cover rounded-2xl shadow-md group-hover/img:scale-105 transition-transform duration-500"
-                        />
-                    ) : (
-                        <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-inner">
-                            <Calendar size={40} className="text-white/40" />
-                        </div>
-                    )}
+                    <PosterImage event={event} />
                     <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-black/10 dark:ring-white/10" />
                 </div>
 
@@ -172,6 +210,6 @@ const EventCard = ({ event }) => {
             </div>
         </motion.div>
     );
-};
+});
 
 export default EventCard;

@@ -170,7 +170,7 @@ const Discovery = () => {
                     className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest mb-4 border border-indigo-100 dark:border-indigo-900/50 shadow-sm"
                 >
                     <Sparkles size={14} />
-                    AI Event Discovery Engine
+                    Discovery Engine
                 </motion.div>
                 <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
                     Find Your Next <span className="text-indigo-600">Opportunity</span>

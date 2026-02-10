@@ -1,4 +1,4 @@
-# 🎨 College Event Manager - Visual Guide
+# 🎨 Event Manager - Visual Guide
 
 ## 📱 App Flow Diagram
 

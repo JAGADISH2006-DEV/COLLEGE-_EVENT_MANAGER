@@ -1,4 +1,4 @@
-# 🚀 Quick Start Guide - College Event Manager
+# 🚀 Quick Start Guide - Event Manager
 
 ## ⚡ 5-Minute Setup
 

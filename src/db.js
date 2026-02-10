@@ -6,7 +6,7 @@ export class EventDatabase extends Dexie {
         super('CollegeEventManager');
 
         this.version(1).stores({
-            events: '++id, collegeName, eventName, eventType, registrationDeadline, startDate, endDate, status, priorityScore, createdAt',
+            events: '++id, collegeName, eventName, eventType, registrationDeadline, startDate, endDate, status, priorityScore, createdAt, contact1, contact2, leader, prizeWon',
             colleges: '++id, name, location, pastEvents',
             notes: '++id, eventId, content, createdAt',
             settings: 'key, value'
@@ -34,7 +34,8 @@ export const EventStatus = {
     CLOSED: 'Closed',
     COMPLETED: 'Completed',
     ATTENDED: 'Attended',
-    WON: 'Won'
+    WON: 'Won',
+    BLOCKED: 'Blocked'
 };
 
 // Event Interface (TypeScript-style documentation)
@@ -51,11 +52,17 @@ export const createEvent = ({
     location = '',
     isOnline = false,
     contactNumbers = [],
+    contact1 = '',
+    contact2 = '',
     posterUrl = '',
     posterBlob = null,
     website = '',
     description = '',
     teamSize = 1,
+    leader = '',
+    members = '',
+    noOfTeams = '',
+    prizeWon = '',
     eligibility = '',
     status = null,
     priorityScore = null,
@@ -77,11 +84,17 @@ export const createEvent = ({
         location,
         isOnline,
         contactNumbers,
+        contact1,
+        contact2,
         posterUrl,
         posterBlob,
         website,
         description,
         teamSize,
+        leader,
+        members,
+        noOfTeams,
+        prizeWon,
         eligibility,
         status: status || calculateStatus(registrationDeadline, startDate, endDate),
         priorityScore: priorityScore || 0,
@@ -203,14 +216,25 @@ export const updateEvent = async (id, updates) => {
         updatedAt: new Date()
     };
 
-    if (updates.registrationDeadline || updates.startDate || updates.endDate) {
+    if (updates.registrationDeadline || updates.startDate || updates.endDate || updates.status ||
+        updates.prizeAmount || updates.registrationFee || updates.isOnline || updates.accommodation) {
         const event = await db.events.get(id);
-        updated.status = calculateStatus(
-            updates.registrationDeadline || event.registrationDeadline,
-            updates.startDate || event.startDate,
-            updates.endDate || event.endDate
-        );
-        updated.priorityScore = calculatePriorityScore({ ...event, ...updates });
+        const mergedEvent = { ...event, ...updates };
+
+        // Only auto-calculate status if it's not being manually set to a terminal status
+        const isTerminalStatus = (s) => s === EventStatus.WON || s === EventStatus.BLOCKED;
+
+        if (updates.status) {
+            updated.status = updates.status;
+        } else if (!isTerminalStatus(event.status)) {
+            updated.status = calculateStatus(
+                mergedEvent.registrationDeadline,
+                mergedEvent.startDate,
+                mergedEvent.endDate
+            );
+        }
+
+        updated.priorityScore = calculatePriorityScore(mergedEvent);
     }
 
     await db.events.update(id, updated);
@@ -250,16 +274,47 @@ export const searchEvents = async (query) => {
     );
 };
 
-// Bulk Import from CSV
+/**
+ * Intelligent Bulk Import
+ * Prevents duplication by checking for existing events with same name and college
+ */
 export const bulkImportEvents = async (eventsArray) => {
-    const processedEvents = eventsArray.map(eventData => {
-        const event = createEvent(eventData);
-        event.priorityScore = calculatePriorityScore(event);
-        return event;
-    });
+    return await db.transaction('rw', db.events, async () => {
+        const existingEvents = await db.events.toArray();
+        const existingMap = new Map();
 
-    await db.events.bulkAdd(processedEvents);
-    return processedEvents.length;
+        // Create a lookup key to identify unique events
+        const getEventKey = (e) => `${e.eventName.toLowerCase().trim()}_${e.collegeName.toLowerCase().trim()}`;
+
+        existingEvents.forEach(e => {
+            existingMap.set(getEventKey(e), e.id);
+        });
+
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        for (const eventData of eventsArray) {
+            const key = getEventKey(eventData);
+            const processedEvent = createEvent(eventData);
+            processedEvent.priorityScore = calculatePriorityScore(processedEvent);
+
+            if (existingMap.has(key)) {
+                // Update existing event
+                const id = existingMap.get(key);
+                await db.events.update(id, {
+                    ...processedEvent,
+                    updatedAt: new Date()
+                });
+                updatedCount++;
+            } else {
+                // Add as new event
+                await db.events.add(processedEvent);
+                addedCount++;
+            }
+        }
+
+        return { added: addedCount, updated: updatedCount };
+    });
 };
 
 // Export to CSV
@@ -280,16 +335,31 @@ export const exportEventsToCSV = async () => {
         'Status': event.status,
         'Priority Score': event.priorityScore,
         'Website': event.website,
-        'Contact': event.contactNumbers.join(', ')
+        'Description': event.description || '',
+        'Team Size': event.teamSize || 1,
+        'Eligibility': event.eligibility || '',
+        'Leader': event.leader || '',
+        'Members': event.members || '',
+        'No of Teams': event.noOfTeams || '',
+        'Prize Won': event.prizeWon || '',
+        'Contact 1': event.contact1 || '',
+        'Contact 2': event.contact2 || '',
+        'Poster URL': event.posterUrl || '',
+        'Contact Numbers': (event.contactNumbers || []).join(', ')
     }));
 };
 
-// Update all event statuses (run daily)
+// Update all event statuses (run daily) - Optimized version
 export const updateAllEventStatuses = async () => {
     const events = await db.events.toArray();
     const updates = [];
 
     for (const event of events) {
+        // Skip auto-updates for terminal statuses
+        if (event.status === EventStatus.WON || event.status === EventStatus.BLOCKED) {
+            continue;
+        }
+
         const newStatus = calculateStatus(
             event.registrationDeadline,
             event.startDate,
@@ -300,7 +370,7 @@ export const updateAllEventStatuses = async () => {
 
         if (newStatus !== event.status || newPriorityScore !== event.priorityScore) {
             updates.push({
-                key: event.id,
+                id: event.id,
                 changes: {
                     status: newStatus,
                     priorityScore: newPriorityScore,
@@ -312,9 +382,8 @@ export const updateAllEventStatuses = async () => {
 
     if (updates.length > 0) {
         await db.transaction('rw', db.events, async () => {
-            for (const update of updates) {
-                await db.events.update(update.key, update.changes);
-            }
+            const promises = updates.map(u => db.events.update(u.id, u.changes));
+            await Promise.all(promises);
         });
     }
     return updates.length;

@@ -1,9 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
 import { addEvent, EventType } from '../db';
 import { parseDate } from '../csvUtils';
 import { X, Upload, Image as ImageIcon, Sparkles, Wand2 } from 'lucide-react';
 import { cn } from '../utils';
+
+const PreviewImage = ({ blob }) => {
+    const [url, setUrl] = useState(null);
+
+    useEffect(() => {
+        if (!(blob instanceof Blob)) return;
+        const newUrl = URL.createObjectURL(blob);
+        setUrl(newUrl);
+        return () => URL.revokeObjectURL(newUrl);
+    }, [blob]);
+
+    if (!url) return null;
+    return <img src={url} alt="Preview" className="h-32 w-auto rounded-lg shadow-md" />;
+};
 
 const AddEventModal = () => {
     const modals = useAppStore((state) => state.modals);
@@ -33,6 +47,20 @@ const AddEventModal = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    // Auto-scroll to top when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
 
     const handleAIAnalysis = async () => {
         if (!formData.posterBlob && !formData.posterUrl) {
@@ -406,11 +434,8 @@ const AddEventModal = () => {
                                         <div className="space-y-1 text-center">
                                             {formData.posterBlob ? (
                                                 <div className="relative inline-block">
-                                                    <img
-                                                        src={URL.createObjectURL(formData.posterBlob)}
-                                                        alt="Preview"
-                                                        className="h-32 w-auto rounded-lg shadow-md"
-                                                    />
+                                                    <PreviewImage blob={formData.posterBlob} />
+
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({ ...prev, posterBlob: null }))}

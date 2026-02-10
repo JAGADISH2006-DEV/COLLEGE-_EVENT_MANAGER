@@ -1,22 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { db, updateAllEventStatuses } from './db';
 import { useAppStore } from './store';
 import { initNotificationSystem } from './notifications';
 
-// Components
+// Eagerly loaded components (needed immediately)
 import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import EventList from './components/EventList';
-import CalendarView from './components/CalendarView';
-import Analytics from './components/Analytics';
-import Discovery from './components/Discovery';
-import Settings from './components/Settings';
-import AddEventModal from './components/AddEventModal';
-import ImportCSVModal from './components/ImportCSVModal';
-import EventDetailsModal from './components/EventDetailsModal';
 import BottomNav from './components/BottomNav';
+
+// Lazy loaded components (code splitting for better performance)
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const EventList = lazy(() => import('./components/EventList'));
+const CalendarView = lazy(() => import('./components/CalendarView'));
+const Analytics = lazy(() => import('./components/Analytics'));
+const Discovery = lazy(() => import('./components/Discovery'));
+const Settings = lazy(() => import('./components/Settings'));
+const AddEventModal = lazy(() => import('./components/AddEventModal'));
+const ImportCSVModal = lazy(() => import('./components/ImportCSVModal'));
+const EventDetailsModal = lazy(() => import('./components/EventDetailsModal'));
+const EditEventModal = lazy(() => import('./components/EditEventModal'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+    <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-4">
+            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-slate-500 font-medium animate-pulse">Loading...</p>
+        </div>
+    </div>
+);
 
 // System Recovery & Error Boundary
 class ErrorBoundary extends React.Component {
@@ -78,7 +91,7 @@ const PageWrapper = ({ children }) => (
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
         className="w-full"
     >
         {children}
@@ -88,20 +101,18 @@ const PageWrapper = ({ children }) => (
 function AnimatedRoutes() {
     const location = useLocation();
 
-    // Auto-refresh data on navigation
-    useEffect(() => {
-        updateAllEventStatuses().catch(err => console.error('Auto-refresh error:', err));
-    }, [location.pathname]);
+    // Optimized: Only refresh on mount, not on every navigation
+    // This prevents unnecessary database queries on every page change
 
     return (
         <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
-                <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-                <Route path="/events" element={<PageWrapper><EventList /></PageWrapper>} />
-                <Route path="/calendar" element={<PageWrapper><CalendarView /></PageWrapper>} />
-                <Route path="/analytics" element={<PageWrapper><Analytics /></PageWrapper>} />
-                <Route path="/api-search" element={<PageWrapper><Discovery /></PageWrapper>} />
-                <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
+                <Route path="/" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><Dashboard /></Suspense></PageWrapper>} />
+                <Route path="/events" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><EventList /></Suspense></PageWrapper>} />
+                <Route path="/calendar" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><CalendarView /></Suspense></PageWrapper>} />
+                <Route path="/analytics" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><Analytics /></Suspense></PageWrapper>} />
+                <Route path="/api-search" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><Discovery /></Suspense></PageWrapper>} />
+                <Route path="/settings" element={<PageWrapper><Suspense fallback={<LoadingFallback />}><Settings /></Suspense></PageWrapper>} />
             </Routes>
         </AnimatePresence>
     );
@@ -137,12 +148,12 @@ function App() {
 
         init();
 
-        // Update statuses daily
-        const dailyUpdate = setInterval(() => {
+        // Update statuses every 6 hours instead of daily for better accuracy
+        const statusUpdate = setInterval(() => {
             updateAllEventStatuses();
-        }, 24 * 60 * 60 * 1000);
+        }, 6 * 60 * 60 * 1000);
 
-        return () => clearInterval(dailyUpdate);
+        return () => clearInterval(statusUpdate);
     }, []);
 
     if (isLoading) {
@@ -178,10 +189,13 @@ function App() {
                         REDDOT
                     </div>
 
-                    {/* Modals */}
-                    <AddEventModal />
-                    <ImportCSVModal />
-                    <EventDetailsModal />
+                    {/* Modals with Suspense */}
+                    <Suspense fallback={null}>
+                        <AddEventModal />
+                        <ImportCSVModal />
+                        <EventDetailsModal />
+                        <EditEventModal />
+                    </Suspense>
                 </div>
             </Router>
         </ErrorBoundary>

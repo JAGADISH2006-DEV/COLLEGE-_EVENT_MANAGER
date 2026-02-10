@@ -63,7 +63,8 @@ export const useAppStore = create(
                 deadlineReminderDays: [7, 3, 1, 0], // Days before deadline
                 eventReminderDays: [1], // Days before event
                 autoSync: false,
-                compactView: false
+                compactView: false,
+                isDeleteLocked: true // Only user can delete after unlocking
             },
             updatePreferences: (prefs) => set((state) => ({
                 preferences: { ...state.preferences, ...prefs }
@@ -78,6 +79,7 @@ export const useAppStore = create(
             // Modal States
             modals: {
                 addEvent: false,
+                editEvent: false,
                 importCSV: false,
                 eventDetails: false,
                 settings: false
@@ -91,6 +93,7 @@ export const useAppStore = create(
             closeAllModals: () => set({
                 modals: {
                     addEvent: false,
+                    editEvent: false,
                     importCSV: false,
                     eventDetails: false,
                     settings: false
@@ -130,10 +133,17 @@ export const useAppStore = create(
                     const newEvents = results.data.map(row => transformRow(row, columnMapping));
 
                     const { bulkImportEvents } = await import('./db');
-                    await bulkImportEvents(newEvents);
+                    const results_import = await bulkImportEvents(newEvents);
 
                     set({ lastSyncTime: new Date(), isSyncing: false });
-                    return true;
+
+                    get().addNotification({
+                        title: 'Sync Successful',
+                        message: `Added ${results_import.added} new and updated ${results_import.updated} events from Google Sheets.`,
+                        type: 'success'
+                    });
+
+                    return results_import;
                 } catch (err) {
                     console.error('Google Sheet Sync Error:', err);
                     set({ isSyncing: false });

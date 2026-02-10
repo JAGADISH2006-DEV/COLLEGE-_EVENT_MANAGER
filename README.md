@@ -1,4 +1,4 @@
-# 🎓 College Event Manager
+# 🎓 Event Manager
 
 > **Offline-first, intelligent event management system for engineering students**
 

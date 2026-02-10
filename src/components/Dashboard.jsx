@@ -5,7 +5,7 @@ import { db } from '../db';
 import { useAppStore } from '../store';
 import EventCard from './EventCard';
 import { TrendingUp, Calendar, Clock, Trophy, Plus, FileUp, Settings as SettingsIcon } from 'lucide-react';
-import { format, isToday, isThisWeek } from 'date-fns';
+import { format, isToday, isThisWeek, differenceInDays, startOfDay } from 'date-fns';
 import { cn } from '../utils';
 
 const StatCard = ({ title, value, icon: Icon, color, delay }) => (
@@ -38,9 +38,11 @@ const Dashboard = () => {
             const d = new Date(e.startDate);
             return !isNaN(d.getTime()) && d > now;
         });
-        const deadlineToday = events.filter(e => {
+        const upcomingDeadlines = events.filter(e => {
             const d = new Date(e.registrationDeadline);
-            return !isNaN(d.getTime()) && isToday(d) && e.status === 'Open';
+            const today = startOfDay(new Date());
+            const daysLeft = differenceInDays(startOfDay(d), today);
+            return !isNaN(d.getTime()) && daysLeft >= 0 && daysLeft <= 3 && (e.status === 'Open' || e.status === 'Deadline Today');
         });
         const thisWeek = events.filter(e => {
             const d = new Date(e.startDate);
@@ -52,7 +54,7 @@ const Dashboard = () => {
 
         return {
             upcoming: upcoming.length,
-            deadlineToday: deadlineToday.length,
+            upcomingDeadlines: upcomingDeadlines.length,
             thisWeek: thisWeek.length,
             totalPrize
         };
@@ -67,9 +69,20 @@ const Dashboard = () => {
             .slice(0, 5);
     }, [events]);
 
-    const deadlineTodayEvents = useMemo(() => {
+    const criticalDeadlines = useMemo(() => {
         if (!events) return [];
-        return events.filter(e => e.status === 'Deadline Today');
+        const today = startOfDay(new Date());
+        return events
+            .filter(e => {
+                const deadline = new Date(e.registrationDeadline);
+                if (isNaN(deadline.getTime())) return false;
+                const daysLeft = differenceInDays(startOfDay(deadline), today);
+                // Show deadlines from today up to 7 days away
+                // Only for Open or Deadline Today statuses
+                const isOpen = e.status === 'Open' || e.status === 'Deadline Today';
+                return daysLeft >= 0 && daysLeft <= 7 && isOpen;
+            })
+            .sort((a, b) => new Date(a.registrationDeadline) - new Date(b.registrationDeadline));
     }, [events]);
 
     if (!events) {
@@ -112,8 +125,8 @@ const Dashboard = () => {
                         Dashboard <span className="text-indigo-600">Overview</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium">
-                        {deadlineTodayEvents.length > 0
-                            ? `Attention: You have ${deadlineTodayEvents.length} deadlines today!`
+                        {criticalDeadlines.length > 0
+                            ? `Attention: You have ${criticalDeadlines.length} critical deadlines coming up!`
                             : "Manage your deadlines and events efficiently."}
                     </p>
                 </motion.div>
@@ -146,8 +159,8 @@ const Dashboard = () => {
                     delay={0.1}
                 />
                 <StatCard
-                    title="Deadlines Today"
-                    value={stats?.deadlineToday || 0}
+                    title="Upcoming Deadlines"
+                    value={stats?.upcomingDeadlines || 0}
                     icon={Clock}
                     color="bg-rose-500"
                     delay={0.2}
@@ -211,16 +224,27 @@ const Dashboard = () => {
                             </h3>
                         </div>
                         <div className="p-5 space-y-4">
-                            {deadlineTodayEvents.length > 0 ? (
-                                deadlineTodayEvents.map(event => (
-                                    <div key={event.id} className="flex flex-col gap-1 p-3 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-rose-100 dark:border-rose-950">
-                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{event.eventName}</span>
-                                        <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">{event.collegeName}</span>
-                                    </div>
-                                ))
+                            {criticalDeadlines.length > 0 ? (
+                                criticalDeadlines.map(event => {
+                                    const daysLeft = differenceInDays(startOfDay(new Date(event.registrationDeadline)), startOfDay(new Date()));
+                                    return (
+                                        <div key={event.id} className="relative flex flex-col gap-1 p-3 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-rose-100 dark:border-rose-950/30 group hover:border-rose-300 transition-all">
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate pr-2">{event.eventName}</span>
+                                                <span className={cn(
+                                                    "text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase whitespace-nowrap",
+                                                    daysLeft === 0 ? "bg-rose-600 text-white animate-pulse" : "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
+                                                )}>
+                                                    {daysLeft === 0 ? 'Today' : `${daysLeft}D Left`}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{event.collegeName}</span>
+                                        </div>
+                                    );
+                                })
                             ) : (
                                 <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                                    No deadlines for today. Relax! 🧘‍♂️
+                                    No critical deadlines found. Relax! 🧘‍♂️
                                 </p>
                             )}
                         </div>

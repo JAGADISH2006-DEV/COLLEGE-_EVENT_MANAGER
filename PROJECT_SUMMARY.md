@@ -1,4 +1,4 @@
-# 📦 College Event Manager - Project Summary
+# 📦 Event Manager - Project Summary
 
 ## ✅ Project Status: COMPLETE
 

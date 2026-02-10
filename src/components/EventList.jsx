@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db, EventType, EventStatus, exportEventsToCSV } from '../db';
 import { useAppStore } from '../store';
 import EventCard from './EventCard';
-import { Search, Filter, SortDesc, SlidersHorizontal, ArrowUpDown, Table as TableIcon, LayoutGrid, FileSpreadsheet, ChevronRight, MapPin, Calendar, Clock, Trophy } from 'lucide-react';
+import { Search, Filter, SortDesc, SlidersHorizontal, ArrowUpDown, Table as TableIcon, LayoutGrid, FileSpreadsheet, ChevronRight, MapPin, Calendar, Clock, Trophy, Zap, ArrowUp } from 'lucide-react';
 import { cn } from '../utils';
 import { format } from 'date-fns';
 import { exportToCSV, downloadCSV } from '../csvUtils';
@@ -20,14 +20,14 @@ const safeFormat = (date, formatStr) => {
     }
 };
 
-const TableView = ({ events }) => {
+const TableView = React.memo(({ events }) => {
     const setSelectedEvent = useAppStore((state) => state.setSelectedEvent);
     const openModal = useAppStore((state) => state.openModal);
 
-    const handleRowClick = (id) => {
+    const handleRowClick = useCallback((id) => {
         setSelectedEvent(id);
         openModal('eventDetails');
-    };
+    }, [setSelectedEvent, openModal]);
 
     return (
         <div className="glass-card overflow-hidden overflow-x-auto border-0 ring-1 ring-slate-100 dark:ring-slate-800">
@@ -95,7 +95,7 @@ const TableView = ({ events }) => {
             </table>
         </div>
     );
-};
+});
 
 const EventList = () => {
     const filters = useAppStore((state) => state.filters);
@@ -105,6 +105,21 @@ const EventList = () => {
     const setSorting = useAppStore((state) => state.setSorting);
     const viewMode = useAppStore((state) => state.viewMode);
     const setViewMode = useAppStore((state) => state.setViewMode);
+
+    // Scroll to Top state
+    const [showScrollTop, setShowScrollTop] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(window.scrollY > 300);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const events = useLiveQuery(() => db.events.toArray(), []);
 
@@ -367,7 +382,7 @@ const EventList = () => {
                                         key={event.id}
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.05 }}
+                                        transition={{ delay: Math.min(idx * 0.02, 0.3) }}
                                     >
                                         <EventCard event={event} />
                                     </motion.div>
@@ -407,6 +422,22 @@ const EventList = () => {
                             </>
                         )}
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Scroll To Top Button */}
+            <AnimatePresence>
+                {showScrollTop && (
+                    <motion.button
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        onClick={scrollToTop}
+                        className="fixed bottom-24 md:bottom-8 right-6 p-4 bg-indigo-600 text-white rounded-full shadow-xl shadow-indigo-500/30 z-40 hover:bg-indigo-700 transition-all hover:scale-110"
+                        title="Scroll to Top"
+                    >
+                        <ArrowUp size={24} />
+                    </motion.button>
                 )}
             </AnimatePresence>
         </div>
