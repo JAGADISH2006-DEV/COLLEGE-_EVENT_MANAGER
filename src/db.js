@@ -276,39 +276,62 @@ export const searchEvents = async (query) => {
 
 /**
  * Intelligent Bulk Import
- * Prevents duplication by checking for existing events with same name and college
+ * Prevents duplication by checking for existing events with same name + college.
+ * Also deduplicates within the incoming batch itself.
  */
 export const bulkImportEvents = async (eventsArray) => {
+    if (!eventsArray || eventsArray.length === 0) {
+        return { added: 0, updated: 0 };
+    }
+
     return await db.transaction('rw', db.events, async () => {
         const existingEvents = await db.events.toArray();
         const existingMap = new Map();
 
-        // Create a lookup key to identify unique events
-        const getEventKey = (e) => `${e.eventName.toLowerCase().trim()}_${e.collegeName.toLowerCase().trim()}`;
+        // Safe key generator — handles missing/undefined fields
+        const getEventKey = (e) => {
+            const name = (e.eventName || '').toString().toLowerCase().trim();
+            const college = (e.collegeName || '').toString().toLowerCase().trim();
+            if (!name && !college) return null; // Skip events with no identifiers
+            return `${name}__${college}`;
+        };
 
+        // Build lookup of existing events
         existingEvents.forEach(e => {
-            existingMap.set(getEventKey(e), e.id);
+            const key = getEventKey(e);
+            if (key) existingMap.set(key, e.id);
         });
 
         let addedCount = 0;
         let updatedCount = 0;
+        const seenInBatch = new Set(); // Track keys in current batch to avoid batch duplicates
 
         for (const eventData of eventsArray) {
+            // Skip events with no name AND no college
+            if (!eventData.eventName && !eventData.collegeName) continue;
+
             const key = getEventKey(eventData);
+            if (!key) continue;
+
+            // Skip duplicates within the same batch
+            if (seenInBatch.has(key)) continue;
+            seenInBatch.add(key);
+
             const processedEvent = createEvent(eventData);
             processedEvent.priorityScore = calculatePriorityScore(processedEvent);
 
             if (existingMap.has(key)) {
-                // Update existing event
-                const id = existingMap.get(key);
-                await db.events.update(id, {
+                // Update existing event — merge, don't overwrite blindly
+                const existingId = existingMap.get(key);
+                await db.events.update(existingId, {
                     ...processedEvent,
                     updatedAt: new Date()
                 });
                 updatedCount++;
             } else {
                 // Add as new event
-                await db.events.add(processedEvent);
+                const newId = await db.events.add(processedEvent);
+                existingMap.set(key, newId); // Prevent re-adding if same key appears again
                 addedCount++;
             }
         }

@@ -116,35 +116,36 @@ const Dashboard = () => {
             className="pb-12"
         >
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 sm:mb-12 gap-6">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
-                    <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">
-                        Dashboard <span className="text-indigo-600">Overview</span>
+                    <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
+                        System <span className="text-indigo-600">Overview</span>
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">
+                    <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium max-w-lg leading-relaxed">
                         {criticalDeadlines.length > 0
-                            ? `Attention: You have ${criticalDeadlines.length} critical deadlines coming up!`
-                            : "Manage your deadlines and events efficiently."}
+                            ? `Neural Link Active: You have ${criticalDeadlines.length} critical deadlines this week.`
+                            : "All systems clear. Your event timeline is currently optimized."}
                     </p>
                 </motion.div>
 
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => openModal('importCSV')}
-                        className="btn btn-secondary px-4 py-2 text-sm font-bold"
-                    >
-                        <FileUp size={18} />
-                        Import CSV
-                    </button>
+                <div className="flex items-center gap-2 sm:gap-3">
                     <button
                         onClick={() => openModal('addEvent')}
-                        className="btn btn-primary px-4 py-2 text-sm font-bold"
+                        className="btn btn-primary flex-1 sm:flex-none py-3"
                     >
                         <Plus size={18} />
-                        Add Event
+                        <span className="font-bold">New Event</span>
+                    </button>
+                    <button
+                        onClick={() => openModal('importCSV')}
+                        className="btn btn-secondary h-12 w-12 sm:w-auto sm:px-4 p-0"
+                        title="Import CSV"
+                    >
+                        <FileUp size={18} />
+                        <span className="hidden sm:inline font-bold">Import</span>
                     </button>
                 </div>
             </div>
@@ -216,35 +217,40 @@ const Dashboard = () => {
                 {/* Right Column: Deadlines & Quick Info */}
                 <div className="space-y-8">
                     {/* Deadline Section */}
-                    <div className="glass-card overflow-hidden">
-                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-rose-50 dark:bg-rose-950/20">
-                            <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2">
-                                <Clock size={20} />
-                                Critical Deadlines
-                            </h3>
+                    <div className="glass-card overflow-hidden shadow-lg border-rose-500/10 dark:border-rose-500/20">
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-rose-50/50 dark:bg-rose-950/20">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                                    <Clock size={20} />
+                                    Critical
+                                </h3>
+                                <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-[10px] font-black px-2 py-1 rounded-full border border-rose-200 dark:border-rose-800/50">
+                                    {criticalDeadlines.length} ACTIVE
+                                </span>
+                            </div>
                         </div>
-                        <div className="p-5 space-y-4">
+                        <div className="p-4 sm:p-5 space-y-3">
                             {criticalDeadlines.length > 0 ? (
                                 criticalDeadlines.map(event => {
                                     const daysLeft = differenceInDays(startOfDay(new Date(event.registrationDeadline)), startOfDay(new Date()));
                                     return (
-                                        <div key={event.id} className="relative flex flex-col gap-1 p-3 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-rose-100 dark:border-rose-950/30 group hover:border-rose-300 transition-all">
-                                            <div className="flex justify-between items-start">
-                                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate pr-2">{event.eventName}</span>
+                                        <div key={event.id} className="relative flex flex-col gap-1 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 group hover:border-rose-500/30 transition-all shadow-sm">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">{event.eventName}</span>
                                                 <span className={cn(
-                                                    "text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase whitespace-nowrap",
-                                                    daysLeft === 0 ? "bg-rose-600 text-white animate-pulse" : "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
+                                                    "text-[9px] px-2 py-1 rounded-lg font-black uppercase whitespace-nowrap",
+                                                    daysLeft === 0 ? "bg-rose-600 text-white animate-pulse shadow-lg shadow-rose-500/20" : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                                                 )}>
                                                     {daysLeft === 0 ? 'Today' : `${daysLeft}D Left`}
                                                 </span>
                                             </div>
-                                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{event.collegeName}</span>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate opacity-70 italic">{event.collegeName}</span>
                                         </div>
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                                    No critical deadlines found. Relax! 🧘‍♂️
+                                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
+                                    No pending deadlines.
                                 </p>
                             )}
                         </div>

@@ -101,54 +101,10 @@ export const useAppStore = create(
             }),
 
             // Google Sheets Integration
-            googleSheetUrl: '',
-            setGoogleSheetUrl: (url) => set({ googleSheetUrl: url }),
-            syncFromGoogleSheet: async () => {
-                const url = get().googleSheetUrl;
-                if (!url) return;
-
-                set({ isSyncing: true });
-                try {
-                    const sheetIdMatch = url.match(/\/d\/(.*?)(\/|$)/);
-                    if (!sheetIdMatch) throw new Error('Invalid Google Sheet URL');
-
-                    const sheetId = sheetIdMatch[1];
-                    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
-
-                    const response = await fetch(csvUrl);
-                    const csvText = await response.text();
-
-                    const { parseCSVFile, autoDetectMapping, transformRow } = await import('./csvUtils');
-
-                    // Parse with PapaParse via the utility
-                    const blob = new Blob([csvText], { type: 'text/csv' });
-                    const results = await parseCSVFile(blob);
-
-                    if (!results.data || results.data.length === 0) {
-                        throw new Error('No data found in Google Sheet');
-                    }
-
-                    const headers = Object.keys(results.data[0]);
-                    const columnMapping = autoDetectMapping(headers);
-                    const newEvents = results.data.map(row => transformRow(row, columnMapping));
-
-                    const { bulkImportEvents } = await import('./db');
-                    const results_import = await bulkImportEvents(newEvents);
-
-                    set({ lastSyncTime: new Date(), isSyncing: false });
-
-                    get().addNotification({
-                        title: 'Sync Successful',
-                        message: `Added ${results_import.added} new and updated ${results_import.updated} events from Google Sheets.`,
-                        type: 'success'
-                    });
-
-                    return results_import;
-                } catch (err) {
-                    console.error('Google Sheet Sync Error:', err);
-                    set({ isSyncing: false });
-                    throw err;
-                }
+            googleSheetUrl: localStorage.getItem('google_script_url') || '',
+            setGoogleSheetUrl: (url) => {
+                localStorage.setItem('google_script_url', url);
+                set({ googleSheetUrl: url });
             }
         }),
         {
@@ -156,8 +112,7 @@ export const useAppStore = create(
             partialize: (state) => ({
                 theme: state.theme,
                 preferences: state.preferences,
-                lastSyncTime: state.lastSyncTime,
-                googleSheetUrl: state.googleSheetUrl
+                lastSyncTime: state.lastSyncTime
             })
         }
     )

@@ -3,11 +3,19 @@
 @tailwind utilities;
 
 @layer base {
+    :root {
+        --safe-area-top: env(safe-area-inset-top, 0px);
+        --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-area-left: env(safe-area-inset-left, 0px);
+        --safe-area-right: env(safe-area-inset-right, 0px);
+    }
+
     * {
         /* Better touch performance on mobile */
         -webkit-tap-highlight-color: transparent;
         /* Prevent text selection on mobile for better UX */
         -webkit-touch-callout: none;
+        outline: none !important;
     }
 
     html {
@@ -15,16 +23,22 @@
         scroll-behavior: smooth;
         /* Prevent overscroll bounce on mobile */
         overscroll-behavior: none;
+        height: -webkit-fill-available;
     }
 
     body {
-        @apply font-sans antialiased bg-gray-50 text-gray-900 dark:bg-[#0f172a] dark:text-gray-100;
+        @apply font-sans antialiased bg-slate-50 text-slate-900 dark:bg-[#0f172a] dark:text-gray-100;
         /* Enable hardware acceleration */
         transform: translateZ(0);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         /* Better touch scrolling on iOS */
         -webkit-overflow-scrolling: touch;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        padding-top: var(--safe-area-top);
+        padding-bottom: calc(var(--safe-area-bottom) + 4rem);
+        /* Space for bottom nav */
     }
 
     /* Optimize button and interactive elements for touch */
@@ -66,7 +80,13 @@
 
     /* Button Styles */
     .btn {
-        @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2 active:scale-95;
+        @apply px-5 py-3 rounded-2xl font-bold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2 active:scale-95 touch-manipulation;
+    }
+
+    @media (max-width: 640px) {
+        .btn {
+            @apply px-4 py-3 text-sm;
+        }
     }
 
     .btn-primary {
@@ -74,7 +94,7 @@
     }
 
     .btn-secondary {
-        @apply bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600;
+        @apply bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm;
     }
 
     .btn-ghost {

@@ -78,7 +78,6 @@ const EventCard = React.memo(({ event }) => {
     const openModal = useAppStore((state) => state.openModal);
 
     const handleClick = (e) => {
-        // Prevent click if clicking a link or button inside
         if (e.target.closest('a') || e.target.closest('button')) return;
         setSelectedEvent(event.id);
         openModal('eventDetails');
@@ -107,10 +106,9 @@ const EventCard = React.memo(({ event }) => {
 
     return (
         <motion.div
-            whileHover={{ y: -4, scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleClick}
-            className="group relative glass-card p-5 cursor-pointer hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
+            className="group relative glass-card p-4 sm:p-5 cursor-pointer hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
         >
             {/* Priority Indicator Line */}
             <div className={cn(
@@ -118,29 +116,37 @@ const EventCard = React.memo(({ event }) => {
                 event.priorityScore >= 70 ? "bg-rose-500" : event.priorityScore >= 40 ? "bg-amber-500" : "bg-indigo-500"
             )} />
 
-            <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                 {/* Poster Thumbnail */}
-                <div className="flex-shrink-0 w-full sm:w-28 h-48 sm:h-36 relative group/img">
+                <div className="flex-shrink-0 w-full sm:w-28 h-40 sm:h-36 relative group/img">
                     <PosterImage event={event} />
                     <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-black/10 dark:ring-white/10" />
+
+                    {/* Mobile Priority Score Overlay */}
+                    <div className={cn(
+                        "absolute top-2 right-2 sm:hidden flex items-center justify-center w-10 h-10 rounded-xl shadow-lg border border-white/20 backdrop-blur-md",
+                        getPriorityStyles(event.priorityScore)
+                    )}>
+                        <span className="text-sm font-black text-white">{event.priorityScore}</span>
+                    </div>
                 </div>
 
                 {/* Event Details */}
-                <div className="flex-1 min-w-0 py-1">
-                    <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4 mb-2">
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight group-hover:text-indigo-600 transition-colors">
+                            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight group-hover:text-indigo-600 transition-colors leading-snug">
                                 {event.eventName}
                             </h3>
-                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
-                                <MapPin size={12} className="text-indigo-500" />
+                            <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+                                <MapPin size={12} className="text-indigo-500 opacity-70" />
                                 {event.collegeName}
                             </p>
                         </div>
 
-                        {/* Priority Score Bubble */}
+                        {/* Desktop Priority Score */}
                         <div className={cn(
-                            "flex flex-col items-center justify-center w-12 h-12 rounded-2xl shadow-lg border border-white/20",
+                            "hidden sm:flex flex-col items-center justify-center w-12 h-12 rounded-2xl shadow-lg border border-white/20",
                             getPriorityStyles(event.priorityScore)
                         )}>
                             <span className="text-[10px] font-black opacity-60 leading-none">SCORE</span>
@@ -148,68 +154,71 @@ const EventCard = React.memo(({ event }) => {
                         </div>
                     </div>
 
-                    {/* Metadata Row */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-100 dark:border-indigo-500/20">
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                        <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-indigo-100 dark:border-indigo-500/20">
                             {event.eventType}
                         </span>
-                        <span className={cn("badge", getStatusStyles(event.status))}>
+                        <span className={cn("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border", getStatusStyles(event.status))}>
                             {event.status}
                         </span>
                         {event.isOnline && (
-                            <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-emerald-100 dark:border-emerald-500/20">
                                 REMOTE
                             </span>
                         )}
                     </div>
 
-                    {/* Info Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6 text-sm">
-                        <div className="flex items-center gap-2 font-medium text-slate-600 dark:text-slate-400">
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-[11px] sm:text-sm">
+                        <div className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-400">
                             <Clock size={14} className="text-rose-500" />
-                            <span className="flex items-center gap-2">
-                                Deadline: {safeFormat(event.registrationDeadline, 'MMM dd')}
-                                {daysUntilDeadline >= 0 && (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                <span className="opacity-70 sm:opacity-100">Deadline:</span>
+                                <span>{safeFormat(event.registrationDeadline, 'MMM dd')}</span>
+                                {daysUntilDeadline >= 0 && daysUntilDeadline <= 7 && (
                                     <span className={cn(
-                                        "text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm",
-                                        daysUntilDeadline <= 1 ? "bg-rose-500 text-white" : "bg-slate-100 dark:bg-slate-800"
+                                        "text-[9px] font-black px-1.5 py-0.5 rounded-md self-start sm:self-auto",
+                                        daysUntilDeadline <= 1 ? "bg-rose-600 text-white animate-pulse" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                     )}>
-                                        {daysUntilDeadline}D LEFT
+                                        {daysUntilDeadline}D
                                     </span>
                                 )}
-                            </span>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-2 font-medium text-slate-600 dark:text-slate-400">
+                        <div className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-400">
                             <Calendar size={14} className="text-indigo-500" />
-                            <span>{safeFormat(event.startDate, 'MMM dd')} - {safeFormat(event.endDate, 'MMM dd')}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                <span className="opacity-70 sm:opacity-100">Starts:</span>
+                                <span>{safeFormat(event.startDate, 'MMM dd')}</span>
+                            </div>
                         </div>
 
                         {event.prizeAmount > 0 && (
-                            <div className="flex items-center gap-2 font-black text-emerald-600 dark:text-emerald-400">
-                                <Trophy size={14} />
-                                <span>₹{event.prizeAmount.toLocaleString()}</span>
-                                <span className="opacity-40 font-bold ml-1 text-[10px]">PRIZE</span>
+                            <div className="col-span-2 sm:col-span-1 pt-1 flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                                    <Trophy size={14} />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-0.5">Grand Prize</span>
+                                    <span className="text-sm font-black tracking-tight">₹{event.prizeAmount.toLocaleString()}</span>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Right Action/Arrow */}
-                <div className="hidden lg:flex flex-col justify-between items-end py-1 shrink-0">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl transition-all"
-                    >
-                        <Share2 size={18} />
-                    </button>
-                    <div className="p-2 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all">
-                        <ChevronRight size={24} />
+                {/* Tablet/Desktop Arrow */}
+                <div className="hidden sm:flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/30 group-hover:translate-x-1 transition-all">
+                        <ChevronRight size={20} />
                     </div>
                 </div>
             </div>
         </motion.div>
     );
 });
+
 
 export default EventCard;
