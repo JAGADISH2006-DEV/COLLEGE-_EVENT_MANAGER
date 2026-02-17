@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db, EventType, EventStatus, exportEventsToCSV } from '../db';
 import { useAppStore } from '../store';
 import EventCard from './EventCard';
-import { Search, Filter, SortDesc, SlidersHorizontal, ArrowUpDown, Table as TableIcon, LayoutGrid, FileSpreadsheet, ChevronRight, MapPin, Calendar, Clock, Trophy, Zap, ArrowUp } from 'lucide-react';
+import { Search, Filter, SortDesc, SlidersHorizontal, ArrowUpDown, Table as TableIcon, LayoutGrid, FileSpreadsheet, ChevronRight, MapPin, Calendar, Clock, Trophy, Zap, ArrowUp, Heart, Terminal, Cpu, Database, Binary } from 'lucide-react';
 import { cn } from '../utils';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { exportToCSV, downloadCSV } from '../csvUtils';
 
 // Safe Date Formatter
@@ -30,69 +30,71 @@ const TableView = React.memo(({ events }) => {
     }, [setSelectedEvent, openModal]);
 
     return (
-        <div className="glass-card overflow-hidden overflow-x-auto border-0 ring-1 ring-slate-100 dark:ring-slate-800">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
-                <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Event Name</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">College</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Type</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Deadline</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400 text-center">Score</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Prize</th>
-                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {events.map((event) => (
-                        <tr
-                            key={event.id}
-                            onClick={() => handleRowClick(event.id)}
-                            className="border-b border-slate-100 dark:border-slate-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-colors cursor-pointer group"
-                        >
-                            <td className="px-6 py-4">
-                                <div className="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{event.eventName}</div>
-                                <div className="text-xs text-slate-400 font-medium flex items-center gap-1 mt-1">
-                                    <MapPin size={10} /> {event.location || 'N/A'}
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">{event.collegeName}</td>
-                            <td className="px-6 py-4">
-                                <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    {event.eventType}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4">
-                                <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                                    {safeFormat(event.registrationDeadline, 'MMM dd, yyyy')}
-                                </div>
-                                <div className={cn(
-                                    "text-[10px] font-bold mt-1",
-                                    (event.status || '').toLowerCase().includes('today') ? "text-rose-500 animate-pulse" : "text-slate-400"
-                                )}>
-                                    {event.status || 'Pending'}
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                                <span className={cn(
-                                    "inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-sm",
-                                    event.priorityScore >= 70 ? "bg-rose-100 text-rose-600" : event.priorityScore >= 40 ? "bg-amber-100 text-amber-600" : "bg-indigo-100 text-indigo-600"
-                                )}>
-                                    {event.priorityScore}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 font-black text-emerald-600 dark:text-emerald-400">
-                                {event.prizeAmount > 0 ? `₹${event.prizeAmount.toLocaleString()}` : '-'}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                                <button className="p-2 text-slate-300 group-hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-xl transition-all">
-                                    <ChevronRight size={18} />
-                                </button>
-                            </td>
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-2xl">
+            <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                        <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Event Name</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">College</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Category</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Deadline</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Priority</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Prize</th>
+                            <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Action</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {events.map((event) => (
+                            <tr
+                                key={event.id}
+                                onClick={() => handleRowClick(event.id)}
+                                className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group"
+                            >
+                                <td className="px-8 py-6">
+                                    <div className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors uppercase tracking-tight text-base">{event.eventName}</div>
+                                    <div className="text-[10px] text-slate-400 font-bold flex items-center gap-2 mt-1 uppercase tracking-widest opacity-60">
+                                        <MapPin size={12} className="text-rose-500" /> {event.location || 'GLOBAL_CLOUD'}
+                                    </div>
+                                </td>
+                                <td className="px-8 py-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{event.collegeName}</td>
+                                <td className="px-8 py-6">
+                                    <span className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 shadow-sm">
+                                        {event.eventType}
+                                    </span>
+                                </td>
+                                <td className="px-8 py-6">
+                                    <div className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tighter">
+                                        {safeFormat(event.registrationDeadline, 'dd MMM yyyy')}
+                                    </div>
+                                    <div className={cn(
+                                        "text-[9px] font-black mt-1 uppercase tracking-widest",
+                                        (event.status || '').toLowerCase().includes('today') ? "text-rose-500 animate-pulse" : "text-slate-400"
+                                    )}>
+                                        {event.status || 'STABLE'}
+                                    </div>
+                                </td>
+                                <td className="px-8 py-6 text-center">
+                                    <div className={cn(
+                                        "inline-flex items-center justify-center w-10 h-10 rounded-xl font-black text-sm border-2 shadow-sm",
+                                        event.priorityScore >= 70 ? "bg-rose-50 border-rose-100 text-rose-600" : event.priorityScore >= 40 ? "bg-amber-50 border-amber-100 text-amber-600" : "bg-indigo-50 border-indigo-100 text-indigo-600"
+                                    )}>
+                                        {event.priorityScore}
+                                    </div>
+                                </td>
+                                <td className="px-8 py-6 font-black text-emerald-600 dark:text-emerald-400 text-base tabular-nums">
+                                    {event.prizeAmount > 0 ? `₹${event.prizeAmount.toLocaleString()}` : '---'}
+                                </td>
+                                <td className="px-8 py-6 text-right">
+                                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all border border-transparent group-hover:border-indigo-100">
+                                        <ChevronRight size={20} strokeWidth={3} />
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 });
@@ -106,284 +108,290 @@ const EventList = () => {
     const viewMode = useAppStore((state) => state.viewMode);
     const setViewMode = useAppStore((state) => state.setViewMode);
 
-    // Scroll to Top state
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
-        const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 300);
-        };
+        const handleScroll = () => setShowScrollTop(window.scrollY > 300);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const events = useLiveQuery(() => db.events.toArray(), []);
 
-    const handleExcelExport = async () => {
-        try {
-            const data = await exportEventsToCSV();
-            const csv = exportToCSV(data);
-            downloadCSV(csv, `event-manager-excel-${new Date().toISOString().split('T')[0]}.csv`);
-        } catch (error) {
-            console.error('Export error:', error);
-        }
-    };
-
-    // Filter and sort events
     const filteredEvents = useMemo(() => {
-        try {
-            if (!events || !Array.isArray(events)) return [];
-            const safeFilters = filters || { status: 'all', eventType: 'all', search: '', dateRange: 'all' };
-            let filtered = [...events];
+        if (!events) return [];
+        let filtered = [...events];
+        const f = filters;
 
-            if (safeFilters.status && safeFilters.status !== 'all') {
-                filtered = filtered.filter(e => e.status === safeFilters.status);
+        if (f.status !== 'all') {
+            if (f.status === 'participated') {
+                filtered = filtered.filter(e => ['Attended', 'Won', 'Registered'].includes(e.status));
+            } else {
+                filtered = filtered.filter(e => e.status === f.status);
             }
-            if (safeFilters.eventType && safeFilters.eventType !== 'all') {
-                filtered = filtered.filter(e => e.eventType === safeFilters.eventType);
-            }
-            if (safeFilters.search) {
-                const query = safeFilters.search.toLowerCase();
-                filtered = filtered.filter(e =>
-                    (e.eventName || '').toLowerCase().includes(query) ||
-                    (e.collegeName || '').toLowerCase().includes(query) ||
-                    (e.location || '').toLowerCase().includes(query)
-                );
-            }
-            if (safeFilters.dateRange && safeFilters.dateRange !== 'all') {
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                filtered = filtered.filter(e => {
-                    const startDate = new Date(e.startDate);
-                    if (isNaN(startDate.getTime())) return filters.dateRange === 'all';
-                    const diff = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
-                    switch (filters.dateRange) {
-                        case 'today': return diff === 0;
-                        case 'week': return diff >= 0 && diff <= 7;
-                        case 'month': return diff >= 0 && diff <= 30;
-                        default: return true;
-                    }
-                });
-            }
-
-            filtered.sort((a, b) => {
-                let comparison = 0;
-                switch (sortBy) {
-                    case 'priorityScore': comparison = b.priorityScore - a.priorityScore; break;
-                    case 'deadline': {
-                        const da = new Date(a.registrationDeadline).getTime();
-                        const dbTicks = new Date(b.registrationDeadline).getTime();
-                        comparison = (isNaN(da) ? 0 : da) - (isNaN(dbTicks) ? 0 : dbTicks);
-                        break;
-                    }
-                    case 'startDate': {
-                        const sa = new Date(a.startDate).getTime();
-                        const sbTicks = new Date(b.startDate).getTime();
-                        comparison = (isNaN(sa) ? 0 : sa) - (isNaN(sbTicks) ? 0 : sbTicks);
-                        break;
-                    }
-                    case 'prizeAmount': comparison = (b.prizeAmount || 0) - (a.prizeAmount || 0); break;
-                    default: comparison = 0;
-                }
-                return sortOrder === 'asc' ? -comparison : comparison;
-            });
-
-            return filtered;
-        } catch (err) {
-            console.error("FILTER_ENGINE_FAIL:", err);
-            return events || [];
         }
+        if (f.eventType !== 'all') filtered = filtered.filter(e => e.eventType === f.eventType);
+        if (f.search) {
+            const q = f.search.toLowerCase();
+            filtered = filtered.filter(e =>
+                (e.eventName || '').toLowerCase().includes(q) ||
+                (e.collegeName || '').toLowerCase().includes(q) ||
+                (e.location || '').toLowerCase().includes(q) ||
+                (e.eventType || '').toLowerCase().includes(q) ||
+                (e.description || '').toLowerCase().includes(q)
+            );
+        }
+        if (f.showShortlisted) filtered = filtered.filter(e => e.isShortlisted);
+
+        if (f.dateRange && f.dateRange !== 'all') {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            filtered = filtered.filter(e => {
+                const deadline = new Date(e.registrationDeadline);
+                const start = new Date(e.startDate);
+                const end = new Date(e.endDate);
+
+                if (f.dateRange === 'today') return isSameDay(deadline, now) || isSameDay(start, now);
+                if (f.dateRange === 'week') {
+                    const nextWeek = new Date(today);
+                    nextWeek.setDate(today.getDate() + 7);
+                    return deadline >= today && deadline <= nextWeek;
+                }
+                if (f.dateRange === 'month') {
+                    return deadline.getMonth() === now.getMonth() && deadline.getFullYear() === now.getFullYear();
+                }
+                if (f.dateRange === 'upcoming') {
+                    // Match Dashboard logic: Event is upcoming if it starts in the future OR deadline is in the future
+                    return deadline > now || start > now;
+                }
+                if (f.dateRange === 'completed') {
+                    return end < now;
+                }
+                return true;
+            });
+        }
+
+        // Custom Date Range Filter (dateFrom / dateTo)
+        if (f.dateFrom) {
+            const fromDate = new Date(f.dateFrom);
+            fromDate.setHours(0, 0, 0, 0);
+            filtered = filtered.filter(e => {
+                const deadline = new Date(e.registrationDeadline);
+                const start = new Date(e.startDate);
+                return (!isNaN(deadline.getTime()) && deadline >= fromDate) || (!isNaN(start.getTime()) && start >= fromDate);
+            });
+        }
+        if (f.dateTo) {
+            const toDate = new Date(f.dateTo);
+            toDate.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(e => {
+                const deadline = new Date(e.registrationDeadline);
+                const start = new Date(e.startDate);
+                return (!isNaN(deadline.getTime()) && deadline <= toDate) || (!isNaN(start.getTime()) && start <= toDate);
+            });
+        }
+
+        if (f.prizeRange && f.prizeRange !== 'all') {
+            filtered = filtered.filter(e => {
+                const prize = parseFloat(e.prizeAmount) || 0;
+                if (f.prizeRange === 'free') return prize === 0;
+                if (f.prizeRange === 'small') return prize > 0 && prize < 10000;
+                if (f.prizeRange === 'medium') return prize >= 10000 && prize < 50000;
+                if (f.prizeRange === 'large') return prize >= 50000;
+                return true;
+            });
+        }
+
+        filtered.sort((a, b) => {
+            let res = 0;
+            if (sortBy === 'priorityScore') res = b.priorityScore - a.priorityScore;
+            else if (sortBy === 'prizeAmount') res = (b.prizeAmount || 0) - (a.prizeAmount || 0);
+            else if (sortBy === 'deadline' || sortBy === 'startDate') {
+                res = new Date(a[sortBy]) - new Date(b[sortBy]);
+            }
+            return sortOrder === 'asc' ? res : -res;
+        });
+        return filtered;
     }, [events, filters, sortBy, sortOrder]);
 
-    if (!events) {
-        return (
-            <div className="min-h-[60vh] flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-slate-500 font-bold animate-pulse">Accessing Encrypted Event Database...</p>
-                </div>
-            </div>
-        );
-    }
+    if (!events) return <div className="py-20 text-center animate-pulse"><div className="w-12 h-12 bg-indigo-500 rounded-full mx-auto mb-4" /></div>;
 
     return (
-        <div className="pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div className="pb-32">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-8">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 dark:bg-indigo-950/40 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-4 border border-indigo-100 dark:border-indigo-900/50">
+                        <Binary size={12} /> System Status: Online
+                    </div>
+                    <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
                         Event <span className="text-indigo-600">Inventory</span>
                     </h1>
-                    <p className="text-slate-500 font-medium mt-1">Manage and filter your tracked events efficiently.</p>
+                    <p className="text-slate-500 font-bold mt-2 max-w-xl">Manage and track all college events in one place.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={handleExcelExport}
-                        className="btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                        onClick={async () => {
+                            const data = await exportEventsToCSV();
+                            downloadCSV(exportToCSV(data), `grid-export-${Date.now()}.csv`);
+                        }}
+                        className="px-6 h-14 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
                     >
-                        <FileSpreadsheet size={18} />
-                        Export Excel
+                        <FileSpreadsheet size={18} /> Export CSV
                     </button>
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shadow-inner ring-1 ring-slate-200 dark:ring-slate-700">
-                        <button
-                            onClick={() => setViewMode('cards')}
-                            className={cn(
-                                "p-2 rounded-lg transition-all",
-                                viewMode === 'cards' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-400"
-                            )}
-                        >
-                            <LayoutGrid size={20} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('table')}
-                            className={cn(
-                                "p-2 rounded-lg transition-all",
-                                viewMode === 'table' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-400"
-                            )}
-                        >
-                            <TableIcon size={20} />
-                        </button>
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800">
+                        <button onClick={() => setViewMode('cards')} className={cn("w-11 h-11 flex items-center justify-center rounded-xl transition-all", viewMode === 'cards' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-md" : "text-slate-400")}><LayoutGrid size={20} /></button>
+                        <button onClick={() => setViewMode('table')} className={cn("w-11 h-11 flex items-center justify-center rounded-xl transition-all", viewMode === 'table' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-md" : "text-slate-400")}><TableIcon size={20} /></button>
                     </div>
                 </div>
             </div>
 
-            {/* Filters Section */}
-            <div className="glass-card p-6 mb-8 border-0 ring-1 ring-slate-100 dark:ring-slate-800 shadow-xl shadow-indigo-500/5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Search */}
-                    <div className="relative group lg:col-span-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+            {/* Tactical Search & Filters */}
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 mb-12 border border-slate-100 dark:border-slate-800 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.05)]">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="relative group lg:col-span-2">
+                        <div className="absolute inset-y-0 left-6 flex items-center text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+                            <Terminal size={20} strokeWidth={3} />
+                        </div>
                         <input
                             type="text"
-                            placeholder="Omnibus search..."
+                            placeholder="Search by Event Name, College, or Location..."
                             value={filters.search}
                             onChange={(e) => setFilters({ search: e.target.value })}
-                            className="input pl-11 !py-3 font-semibold"
+                            className="w-full pl-16 pr-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-2xl outline-none font-black text-sm tracking-tight text-slate-900 dark:text-white transition-all shadow-inner"
                         />
                     </div>
-
-                    {/* Status Filter */}
-                    <div className="relative">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 lg:col-span-2">
                         <select
                             value={filters.status}
                             onChange={(e) => setFilters({ status: e.target.value })}
-                            className="input appearance-none cursor-pointer !py-3 font-semibold"
+                            className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-2xl px-6 py-5 outline-none font-black text-[10px] uppercase tracking-widest text-slate-500 appearance-none shadow-inner"
                         >
-                            <option value="all">Status: All</option>
-                            {Object.values(EventStatus).map(status => (
-                                <option key={status} value={status}>{status}</option>
-                            ))}
+                            <option value="all">Every Status</option>
+                            {Object.values(EventStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                            <Filter size={14} />
-                        </div>
-                    </div>
-
-                    {/* Type Filter */}
-                    <div className="relative">
                         <select
                             value={filters.eventType}
                             onChange={(e) => setFilters({ eventType: e.target.value })}
-                            className="input appearance-none cursor-pointer !py-3 font-semibold"
+                            className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-2xl px-6 py-5 outline-none font-black text-[10px] uppercase tracking-widest text-slate-500 appearance-none shadow-inner"
                         >
-                            <option value="all">Category: All</option>
-                            {Object.values(EventType).map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
+                            <option value="all">Every Category</option>
+                            {Object.values(EventType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                            <SlidersHorizontal size={14} />
-                        </div>
-                    </div>
-
-                    {/* Date Range */}
-                    <div className="relative">
-                        <select
-                            value={filters.dateRange}
-                            onChange={(e) => setFilters({ dateRange: e.target.value })}
-                            className="input appearance-none cursor-pointer !py-3 font-semibold"
+                        <button
+                            onClick={() => setFilters({ showShortlisted: !filters.showShortlisted })}
+                            className={cn("flex items-center justify-center gap-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 h-full", filters.showShortlisted ? "bg-rose-600 text-white border-rose-600 shadow-xl shadow-rose-500/20" : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400")}
                         >
-                            <option value="all">Timeline: All</option>
-                            <option value="today">Today</option>
-                            <option value="week">Coming Week</option>
-                            <option value="month">Coming Month</option>
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                            <Clock size={14} />
-                        </div>
+                            <Heart size={14} fill={filters.showShortlisted ? "currentColor" : "none"} /> Shortlisted
+                        </button>
                     </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sort Matrix</span>
-                        <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
-                            {['priorityScore', 'deadline', 'startDate', 'prizeAmount'].map((field) => (
-                                <button
-                                    key={field}
-                                    onClick={() => setSorting(field, sortOrder)}
-                                    className={cn(
-                                        "px-4 py-1.5 text-xs font-bold rounded-lg transition-all",
-                                        sortBy === field
-                                            ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-md"
-                                            : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                                    )}
-                                >
-                                    {field.replace(/([A-Z])/g, ' $1').trim()}
-                                </button>
-                            ))}
+                <div className="mt-8 pt-8 border-t border-slate-50 dark:border-slate-800/50 flex flex-wrap items-center justify-between gap-6">
+                    <div className="flex flex-wrap items-center gap-6">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Sort By</span>
+                            <div className="flex p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                {['priorityScore', 'deadline', 'prizeAmount'].map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setSorting(f, sortOrder)}
+                                        className={cn("px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all", sortBy === f ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600")}
+                                    >
+                                        {f.replace('priorityScore', 'Priority').replace('deadline', 'Deadline').replace('prizeAmount', 'Prize')}
+                                    </button>
+                                ))}
+                            </div>
+                            <button onClick={() => setSorting(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')} className="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors border border-slate-100 dark:border-slate-800">
+                                <ArrowUpDown size={18} strokeWidth={3} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time Filter</span>
+                            <select
+                                value={filters.dateRange}
+                                onChange={(e) => setFilters({ dateRange: e.target.value })}
+                                className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-2xl px-6 py-3 outline-none font-black text-[10px] uppercase tracking-widest text-slate-500 appearance-none shadow-inner"
+                            >
+                                <option value="all">Any Time</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="upcoming">Upcoming</option>
+                                <option value="completed">Past Events</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Prize Pool</span>
+                            <select
+                                value={filters.prizeRange}
+                                onChange={(e) => setFilters({ prizeRange: e.target.value })}
+                                className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-2xl px-6 py-3 outline-none font-black text-[10px] uppercase tracking-widest text-slate-500 appearance-none shadow-inner"
+                            >
+                                <option value="all">Any Prize</option>
+                                <option value="free">No Prize</option>
+                                <option value="small">{"< ₹10k"}</option>
+                                <option value="medium">₹10k - ₹50k</option>
+                                <option value="large">{"≥ ₹50k"}</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setSorting(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
-                            className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition-colors shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
-                        >
-                            <ArrowUpDown size={16} />
-                        </button>
-                        <button
-                            onClick={() => setFilters({ search: '', status: 'all', eventType: 'all', dateRange: 'all' })}
-                            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
-                        >
-                            Reset System
-                        </button>
+                    {/* Custom Date Range Row */}
+                    <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date Range</span>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">From</label>
+                            <input
+                                type="date"
+                                value={filters.dateFrom || ''}
+                                onChange={(e) => setFilters({ dateFrom: e.target.value })}
+                                className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none font-bold text-xs text-slate-600 dark:text-slate-300 shadow-inner"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">To</label>
+                            <input
+                                type="date"
+                                value={filters.dateTo || ''}
+                                onChange={(e) => setFilters({ dateTo: e.target.value })}
+                                className="bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none font-bold text-xs text-slate-600 dark:text-slate-300 shadow-inner"
+                            />
+                        </div>
+                        {(filters.dateFrom || filters.dateTo) && (
+                            <button
+                                onClick={() => setFilters({ dateFrom: '', dateTo: '' })}
+                                className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors"
+                            >
+                                Clear Dates
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end mt-4">
+                        <button onClick={() => setFilters({ search: '', status: 'all', eventType: 'all', dateRange: 'all', prizeRange: 'all', showShortlisted: false, dateFrom: '', dateTo: '' })} className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-rose-500 transition-colors">Reset All Filters</button>
                     </div>
                 </div>
             </div>
 
-            {/* Results Display */}
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-black text-[10px]">{filteredEvents.length}</span>
-                    Matches Identified
+            <div className="flex items-center justify-between mb-8 px-2">
+                <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shadow-[0_0_8px_rgba(79,70,229,1)]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{filteredEvents.length} SIGNAL(S) IDENTIFIED</span>
                 </div>
             </div>
 
             <AnimatePresence mode="wait">
                 {filteredEvents.length > 0 ? (
-                    <motion.div
-                        key={viewMode}
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.02 }}
-                        transition={{ duration: 0.2 }}
-                    >
-                        {viewMode === 'table' ? (
-                            <TableView events={filteredEvents} />
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                    <motion.div key={viewMode} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.2 }}>
+                        {viewMode === 'table' ? <TableView events={filteredEvents} /> : (
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 auto-rows-fr">
                                 {filteredEvents.map((event, idx) => (
-                                    <motion.div
-                                        key={event.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: Math.min(idx * 0.02, 0.3) }}
-                                    >
+                                    <motion.div key={event.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx * 0.05, 0.4) }} className="h-full">
                                         <EventCard event={event} />
                                     </motion.div>
                                 ))}
@@ -391,52 +399,19 @@ const EventList = () => {
                         )}
                     </motion.div>
                 ) : (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="glass-card p-20 text-center border-dashed border-2 bg-slate-50/50 dark:bg-slate-900/50"
-                    >
-                        {events.length === 0 ? (
-                            <>
-                                <Zap size={48} className="mx-auto text-indigo-500 mb-4 animate-bounce" />
-                                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Database is Empty</h3>
-                                <p className="text-slate-500 font-medium">Your event collection is currently void. Start adding events to track them!</p>
-                                <button
-                                    onClick={() => useAppStore.getState().openModal('addEvent')}
-                                    className="mt-8 btn btn-primary mx-auto"
-                                >
-                                    Add Your First Event
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <SlidersHorizontal size={48} className="mx-auto text-slate-300 mb-4" />
-                                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Zero Results Found</h3>
-                                <p className="text-slate-500 font-medium">No records match your current filter parameters.</p>
-                                <button
-                                    onClick={() => setFilters({ search: '', status: 'all', eventType: 'all', dateRange: 'all' })}
-                                    className="mt-8 btn btn-primary mx-auto"
-                                >
-                                    Reset Data Pipeline
-                                </button>
-                            </>
-                        )}
-                    </motion.div>
+                    <div className="py-40 text-center bg-slate-50/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
+                        <Database size={64} className="mx-auto text-slate-200 mb-8" />
+                        <h3 className="text-2xl font-black text-slate-400 uppercase tracking-[0.2em]">Zero Grid Matches</h3>
+                        <p className="text-xs text-slate-400 font-bold mt-2">Adjust search parameters or initialize new node.</p>
+                    </div>
                 )}
             </AnimatePresence>
 
-            {/* Scroll To Top Button */}
+            {/* Float Scroll To Top */}
             <AnimatePresence>
                 {showScrollTop && (
-                    <motion.button
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.5 }}
-                        onClick={scrollToTop}
-                        className="fixed bottom-24 md:bottom-8 right-6 p-4 bg-indigo-600 text-white rounded-full shadow-xl shadow-indigo-500/30 z-40 hover:bg-indigo-700 transition-all hover:scale-110"
-                        title="Scroll to Top"
-                    >
-                        <ArrowUp size={24} />
+                    <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} onClick={scrollToTop} className="fixed bottom-32 right-8 w-16 h-16 bg-slate-900 text-white rounded-2xl shadow-2xl z-50 flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+                        <ArrowUp size={24} strokeWidth={3} />
                     </motion.button>
                 )}
             </AnimatePresence>

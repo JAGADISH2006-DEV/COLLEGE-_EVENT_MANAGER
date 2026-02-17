@@ -1,18 +1,37 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { Moon, Sun, Plus, Upload, Settings as SettingsIcon } from 'lucide-react';
+import { logoutUser } from '../services/firebase';
+import { Moon, Sun, Plus, LogOut, Settings as SettingsIcon, User } from 'lucide-react';
 
 const Header = () => {
     const location = useLocation();
     const theme = useAppStore((state) => state.theme);
     const toggleTheme = useAppStore((state) => state.toggleTheme);
     const openModal = useAppStore((state) => state.openModal);
+    const user = useAppStore((state) => state.user);
+    const cloudProvider = useAppStore((state) => state.cloudProvider);
+    const userRole = useAppStore((state) => state.userRole);
+    const canAdd = userRole === 'admin' || userRole === 'event_manager';
+
+    const setUser = useAppStore((state) => state.setUser);
+
+    const handleLogout = async () => {
+        try {
+            if (cloudProvider === 'firestore') {
+                await logoutUser();
+            }
+            setUser(null);
+            window.location.reload();
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    };
 
     const navItems = [
         { path: '/', label: 'Dashboard' },
         { path: '/events', label: 'Events' },
-        { path: '/api-search', label: 'Discovery' },
+        { path: '/discovery', label: 'Discovery' },
         { path: '/calendar', label: 'Calendar' },
         { path: '/analytics', label: 'Analytics' }
     ];
@@ -40,7 +59,7 @@ const Header = () => {
                     <nav className="hidden lg:flex items-center space-x-1">
                         {navItems.map((item) => (
                             <Link
-                                key={item.path}
+                                key={item.label}
                                 to={item.path}
                                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === item.path
                                     ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
@@ -54,14 +73,16 @@ const Header = () => {
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2 sm:space-x-3">
-                        <button
-                            onClick={() => openModal('addEvent')}
-                            className="btn btn-primary h-10 sm:h-auto px-3 sm:px-5"
-                            title="Add Event"
-                        >
-                            <Plus size={18} />
-                            <span className="hidden sm:inline">Add Event</span>
-                        </button>
+                        {canAdd && (
+                            <button
+                                onClick={() => openModal('addEvent')}
+                                className="btn btn-primary h-10 sm:h-auto px-3 sm:px-5"
+                                title="Add Event"
+                            >
+                                <Plus size={18} />
+                                <span className="hidden sm:inline">Add Event</span>
+                            </button>
+                        )}
 
                         <button
                             onClick={toggleTheme}
@@ -71,13 +92,41 @@ const Header = () => {
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                         </button>
 
-                        <Link
-                            to="/settings"
-                            className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                            aria-label="Settings"
-                        >
-                            <SettingsIcon size={20} />
-                        </Link>
+                        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                            {cloudProvider === 'firestore' ? (
+                                <>
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Firebase Live</span>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Local DB Mode</span>
+                                </>
+                            )}
+                        </div>
+
+                        {user && (
+                            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-500 hover:text-rose-600 transition-colors"
+                                    title="Logout"
+                                >
+                                    <LogOut size={18} />
+                                </button>
+                                <Link
+                                    to="/settings"
+                                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-transform overflow-hidden"
+                                >
+                                    {user.photoURL ? (
+                                        <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User size={20} />
+                                    )}
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

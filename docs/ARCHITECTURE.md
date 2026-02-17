@@ -202,13 +202,20 @@ User changes filter
 - Instant read/write operations
 - Survives browser refresh
 
-### Sync Strategy (Future)
+### Sync Strategy (Active)
 
 ```
 Local DB (Primary)
-  ↕ (Optional)
-Cloud DB (Backup)
+  ↕ (Real-time Sync)
+Firebase Firestore (Cloud Backup & Team Share)
 ```
+
+**Implementation**:
+- **Auth**: Firebase Authentication (Email/Password)
+- **Database**: Cloud Firestore
+- **Real-time**: Snapshot listeners for instant UI updates across devices
+- **Offline**: IndexedDB stores data, syncing to Firestore when online
+
 
 ---
 

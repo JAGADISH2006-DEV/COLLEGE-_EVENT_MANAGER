@@ -1,26 +1,28 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, updateEvent, deleteEvent } from '../db';
+import { db, updateEvent, deleteEvent, EventStatus } from '../db';
 import { useAppStore } from '../store';
-import { X, Calendar, MapPin, Trophy, Users, ExternalLink, Trash2, Edit, Clock, Sparkles } from 'lucide-react';
+import { X, Calendar, MapPin, Trophy, Users, ExternalLink, Trash2, Edit, Clock, Sparkles, Heart, Phone, Info, Globe, Shield, ShieldCheck, Zap, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, resolveImageUrl } from '../utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Safe Formatter
 const safeFormat = (date, formatStr) => {
     try {
         const d = new Date(date);
-        if (isNaN(d.getTime())) return 'Not Specified';
+        if (isNaN(d.getTime())) return 'TBD';
         return format(d, formatStr);
     } catch (e) {
-        return 'Not Specified';
+        return 'TBD';
     }
 };
 
 const DetailPosterImage = ({ event }) => {
-    const [imgSrc, setImgSrc] = React.useState(null);
+    const [imgSrc, setImgSrc] = useState(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         let objectUrl = null;
 
         if (event.posterBlob instanceof Blob) {
@@ -41,17 +43,24 @@ const DetailPosterImage = ({ event }) => {
         };
     }, [event.posterBlob, event.posterUrl]);
 
-    if (!imgSrc) return null;
+    if (!imgSrc) return (
+        <div className="w-full h-28 sm:h-32 bg-slate-100 dark:bg-slate-800 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 mb-3">
+            <Zap size={18} className="text-slate-300 mb-2 animate-pulse" />
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">No Poster Available</span>
+        </div>
+    );
 
     return (
-        <div className="mb-8 group relative">
+        <div className="mb-3 group relative rounded-xl overflow-hidden shadow-lg border border-white/20">
             <img
                 src={imgSrc}
                 alt={event.eventName}
-                className="w-full max-h-[400px] object-contain rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 group-hover:scale-[1.01] transition-transform duration-500"
+                className="w-full max-h-[180px] sm:max-h-[220px] object-contain bg-slate-900 group-hover:scale-105 transition-transform duration-700"
                 onError={() => setImgSrc(null)}
             />
-            <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-black/5" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                <p className="text-white text-[8px] font-black uppercase tracking-widest">Event Poster: {event.eventName}</p>
+            </div>
         </div>
     );
 };
@@ -59,53 +68,51 @@ const DetailPosterImage = ({ event }) => {
 const EventDetailsModal = () => {
     const modals = useAppStore((state) => state.modals);
     const closeModal = useAppStore((state) => state.closeModal);
-    const selectedEventId = useAppStore((state) => state.selectedEventId);
+    const selectedEvent = useAppStore((state) => state.selectedEvent);
     const isOpen = modals.eventDetails;
+    const userRole = useAppStore((state) => state.userRole);
+    const canManage = userRole === 'admin' || userRole === 'event_manager';
 
     const event = useLiveQuery(
-        () => selectedEventId ? db.events.get(selectedEventId) : null,
-        [selectedEventId]
+        () => selectedEvent ? db.events.get(selectedEvent) : null,
+        [selectedEvent]
     );
 
     const openModal = useAppStore((state) => state.openModal);
     const preferences = useAppStore((state) => state.preferences);
-
     const modalContentRef = useRef(null);
+    const [isZoomed, setIsZoomed] = useState(false);
 
-    // Auto-scroll to top when modal opens
-    React.useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
-            // Instant scroll to top of page to prevent locking issues
-            window.scrollTo(0, 0);
-
-            // Also scroll the modal content to top
-            if (modalContentRef.current) {
-                modalContentRef.current.scrollTop = 0;
-            }
-
-            // Also prevent body scroll when modal is open
+            // Prevent background scrolling without moving the page
+            document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
-        } else {
-            // Re-enable body scroll when modal closes
-            document.body.style.overflow = 'unset';
-        }
 
+            // Scroll the modal's own content to the top
+            requestAnimationFrame(() => {
+                if (modalContentRef.current) {
+                    modalContentRef.current.scrollTo(0, 0);
+                }
+            });
+        }
         return () => {
-            document.body.style.overflow = 'unset';
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
         };
     }, [isOpen]);
 
     const handleDelete = async () => {
         if (preferences.isDeleteLocked) {
-            const pin = prompt('Enter Security PIN to delete this event:');
+            const pin = prompt('Safe mode is active. Enter PIN:');
             if (pin !== '2026') {
-                alert('Incorrect PIN. Delete failed.');
+                alert('Invalid PIN.');
                 return;
             }
         }
 
-        if (confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-            await deleteEvent(selectedEventId);
+        if (confirm('Are you sure you want to delete this event?')) {
+            await deleteEvent(selectedEvent);
             closeModal('eventDetails');
         }
     };
@@ -116,226 +123,275 @@ const EventDetailsModal = () => {
     };
 
     const handleStatusChange = async (newStatus) => {
-        await updateEvent(selectedEventId, { status: newStatus });
+        await updateEvent(selectedEvent, { status: newStatus });
     };
 
     if (!isOpen || !event) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                {/* Backdrop */}
-                <div
-                    className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-                    onClick={() => closeModal('eventDetails')}
-                ></div>
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
+                onClick={() => closeModal('eventDetails')}
+            />
 
-                {/* Modal */}
-                <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-slate-200 dark:border-slate-700">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100 dark:border-gray-700">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600">
-                                <Trophy size={24} />
-                            </div>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white">
-                                Event <span className="text-indigo-600">Intelligence</span>
-                            </h3>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="relative w-full max-w-[92%] sm:max-w-md md:max-w-lg bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[1.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-white/20 overflow-hidden flex flex-col max-h-[88vh]"
+            >
+                {/* Header Section */}
+                <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 px-4 py-3 sm:px-5 sm:py-4 text-white relative shrink-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="px-1.5 py-0.5 bg-white/20 backdrop-blur-md rounded text-[6px] sm:text-[7px] font-black uppercase tracking-widest border border-white/20">
+                            {event.eventType}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleEdit}
-                                className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-600 hover:text-white rounded-xl font-bold transition-all text-sm"
-                            >
-                                <Edit size={16} />
-                                Edit Details
-                            </button>
-                            <button
-                                onClick={() => closeModal('eventDetails')}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                            >
-                                <X size={24} className="text-slate-400" />
-                            </button>
+                        <div className={cn(
+                            "px-1.5 py-0.5 backdrop-blur-md rounded text-[6px] sm:text-[7px] font-black uppercase tracking-widest border",
+                            event.status === 'Registered' ? "bg-emerald-500/20 border-emerald-500/20 text-emerald-100" :
+                                event.status === 'Deadline Today' ? "bg-rose-500/20 border-rose-500/20 text-rose-100 animate-pulse" :
+                                    "bg-white/10 border-white/10"
+                        )}>
+                            {event.status}
                         </div>
                     </div>
+                    <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight pr-16">{event.eventName}</h2>
+                    <p className="text-[9px] sm:text-[10px] text-white/70 font-bold mt-0.5 flex items-center gap-1.5">
+                        <Globe size={9} />
+                        {event.collegeName}
+                    </p>
 
-                    {/* Content */}
-                    <div ref={modalContentRef} className="px-8 py-8 max-h-[70vh] overflow-y-auto">
-                        {/* Poster */}
-                        <DetailPosterImage event={event} />
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                        <button
+                            onClick={async () => await updateEvent(event.id, { isShortlisted: !event.isShortlisted })}
+                            className={cn(
+                                "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all border",
+                                event.isShortlisted ? "bg-rose-500 border-rose-400 text-white" : "bg-white/10 border-white/10 text-white/60 hover:bg-white/20"
+                            )}
+                        >
+                            <Heart size={12} className="sm:size-[14px]" fill={event.isShortlisted ? "currentColor" : "none"} />
+                        </button>
+                        <button
+                            onClick={() => closeModal('eventDetails')}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all border border-white/20"
+                        >
+                            <X size={14} className="sm:size-4" />
+                        </button>
+                    </div>
+                </div>
 
-
-                        {/* Title & College */}
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg">
-                                    {event.eventType}
-                                </span>
-                                <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg badge-${(event.status || 'open').toLowerCase().replace(' ', '-')}`}>
-                                    {event.status || 'Open'}
-                                </span>
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/20" ref={modalContentRef}>
+                    <div className="p-3 sm:p-4">
+                        {/* Poster Image (Zoomable) */}
+                        <div onClick={() => setIsZoomed(true)} className="cursor-zoom-in relative group rounded-xl overflow-hidden shadow-lg border border-white/20 mb-3">
+                            <DetailPosterImage event={event} />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                <span className="text-[9px] font-black text-white uppercase tracking-[0.2em] border border-white/30 px-3 py-1 rounded-full backdrop-blur-sm">Click to Expand</span>
                             </div>
-                            <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
-                                {event.eventName}
-                            </h2>
-                            <p className="text-lg font-semibold text-slate-500 flex items-center gap-2">
-                                <MapPin size={18} className="text-rose-500" />
-                                {event.collegeName}
+                        </div>
+
+                        {/* Prize Pool Bar */}
+                        <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl text-white shadow-lg shadow-amber-500/10 flex justify-between items-center overflow-hidden relative mb-3">
+                            <Trophy size={44} className="absolute -right-1 -bottom-1 opacity-20" />
+                            <div className="relative z-10">
+                                <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-80 block">Prize Pool</span>
+                                <h3 className="text-xl sm:text-2xl font-black">₹{(event.prizeAmount || 0).toLocaleString()}</h3>
+                            </div>
+                            {event.prizeWon && (
+                                <div className="relative z-10 px-2 py-1 bg-white/20 rounded-lg text-[7px] font-black uppercase max-w-[100px]">
+                                    {event.prizeWon}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Info Grid - 2x2 compact */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                            {/* Deadline Card - Interactive */}
+                            <div
+                                onClick={async () => {
+                                    if (event.status !== 'Registered') {
+                                        if (confirm("Mark this event as registered? This will track it as 'Participating'.")) {
+                                            await updateEvent(event.id, { status: 'Registered' });
+                                        }
+                                    }
+                                }}
+                                className={cn(
+                                    "p-2.5 sm:p-3 rounded-lg border shadow-sm transition-all cursor-pointer group hover:bg-slate-50 dark:hover:bg-slate-800",
+                                    event.status === 'Registered' ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" :
+                                        event.status === 'Completed' || event.status === 'Closed' ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 opacity-60" :
+                                            "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800"
+                                )}
+                            >
+                                <div className={cn("flex items-center gap-1.5 mb-0.5",
+                                    event.status === 'Registered' ? "text-emerald-600 dark:text-emerald-400" :
+                                        (event.status === 'Deadline Today' || event.status === 'Open') ? "text-rose-500" : "text-slate-400"
+                                )}>
+                                    {event.status === 'Registered' ? <ShieldCheck size={10} /> : <Calendar size={10} />}
+                                    <span className={cn("text-[7px] font-black uppercase tracking-wider", event.status === 'Registered' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400")}>
+                                        {event.status === 'Registered' ? 'Registered' : 'Deadline'}
+                                    </span>
+                                </div>
+                                <p className={cn("text-[11px] sm:text-xs font-black",
+                                    event.status === 'Registered' ? "text-emerald-700 dark:text-emerald-300" :
+                                        (event.status === 'Deadline Today' || event.status === 'Open') ? "text-rose-600 dark:text-rose-400" :
+                                            "text-slate-500 dark:text-slate-400"
+                                )}>
+                                    {event.status === 'Registered' ? 'Participation Confirmed' : safeFormat(event.registrationDeadline, 'MMM dd, yyyy')}
+                                </p>
+                            </div>
+
+                            <div className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                <div className="flex items-center gap-1.5 text-indigo-500 mb-0.5">
+                                    <Zap size={10} />
+                                    <span className="text-[7px] font-black uppercase tracking-wider text-slate-400">Schedule</span>
+                                </div>
+                                <p className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white">{safeFormat(event.startDate, 'MMM dd')} - {safeFormat(event.endDate, 'dd')}</p>
+                            </div>
+                            <div className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-md bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0"><MapPin size={11} /></div>
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-wider text-slate-400 block">Location</span>
+                                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-900 dark:text-white leading-none truncate block">{event.location || 'Campus'}</span>
+                                </div>
+                                {event.isOnline && <div className="text-[6px] font-black uppercase px-1 py-0.5 bg-emerald-500/10 text-emerald-500 rounded border border-emerald-500/20 shrink-0">Online</div>}
+                            </div>
+                            <div className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500 shrink-0"><Users size={11} /></div>
+                                <div className="flex-1">
+                                    <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-wider text-slate-400 block">Requirement</span>
+                                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-900 dark:text-white uppercase leading-none">
+                                        {event.teamSize > 1
+                                            ? (event.teamName ? <><span className="text-indigo-600">{event.teamName}</span> <span className="text-slate-400">({event.teamSize})</span></> : `Squad of ${event.teamSize}`)
+                                            : 'Solo Person'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Contact Bar */}
+                        <a href={`tel:${event.contact1}`} className="p-2.5 sm:p-3 bg-slate-900 text-white rounded-lg shadow-sm flex items-center gap-2.5 hover:scale-[1.01] transition-transform mb-3">
+                            <div className="w-7 h-7 rounded-md bg-white/10 flex items-center justify-center text-white shrink-0"><Phone size={12} /></div>
+                            <div className="flex-1">
+                                <span className="text-[7px] font-black uppercase tracking-wider text-white/50 block">Primary Contact</span>
+                                <span className="text-[11px] font-mono font-bold leading-none">{event.contact1 || '91+ **********'}</span>
+                            </div>
+                        </a>
+
+                        {/* About Section */}
+                        <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm mb-3">
+                            <div className="flex items-center gap-1.5 mb-2 text-indigo-500">
+                                <Info size={12} />
+                                <span className="text-[7px] font-black uppercase tracking-widest">About the Event</span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                                {event.description || 'No detailed briefing available for this operative.'}
                             </p>
                         </div>
 
-                        {/* Stats Summary */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                            {[
-                                { label: 'Deadline', value: safeFormat(event.registrationDeadline, 'MMM dd'), icon: Calendar, color: 'text-rose-500' },
-                                { label: 'Event Date', value: safeFormat(event.startDate, 'MMM dd'), icon: Clock, color: 'text-indigo-500' },
-                                { label: 'Prize', value: `₹${(event.prizeAmount || 0).toLocaleString()}`, icon: Trophy, color: 'text-emerald-500' },
-                                { label: 'JD Status', value: event.prizeWon || 'Enrolled', icon: Sparkles, color: 'text-amber-500' }
-                            ].map((stat, i) => (
-                                <div key={i} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <stat.icon size={14} className={stat.color} />
-                                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider font-mono">{stat.label}</span>
-                                    </div>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                        {/* More Details (Eligibility, Website button) */}
+                        {event.eligibility && (
+                            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 mb-3">
+                                <div className="flex items-center gap-1.5 mb-1 text-indigo-600 dark:text-indigo-400">
+                                    <Shield size={10} />
+                                    <span className="text-[7px] font-black uppercase tracking-widest">Eligibility Protocol</span>
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Description Section */}
-                        <div className="space-y-8">
-                            {event.description && (
-                                <div>
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 mb-3 flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" />
-                                        Event Intelligence
-                                    </h4>
-                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium whitespace-pre-wrap bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                                        {event.description}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {event.eligibility && (
-                                    <div>
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-3 flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full" />
-                                            Eligibility Criteria
-                                        </h4>
-                                        <p className="text-slate-600 dark:text-slate-300 font-bold">{event.eligibility}</p>
-                                    </div>
-                                )}
-
-                                {(event.contact1 || event.contact2 || (event.contactNumbers && event.contactNumbers.length > 0)) && (
-                                    <div>
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 mb-3 flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-rose-600 rounded-full" />
-                                            Direct Contacts
-                                        </h4>
-                                        <div className="flex flex-col gap-2">
-                                            {event.contact1 && (
-                                                <a href={`tel:${event.contact1}`} className="text-slate-700 dark:text-slate-300 font-bold hover:text-rose-600 transition-colors flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-[10px]">1</div>
-                                                    {event.contact1}
-                                                </a>
-                                            )}
-                                            {event.contact2 && (
-                                                <a href={`tel:${event.contact2}`} className="text-slate-700 dark:text-slate-300 font-bold hover:text-rose-600 transition-colors flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-[10px]">2</div>
-                                                    {event.contact2}
-                                                </a>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                <p className="text-[10px] font-bold text-indigo-900 dark:text-indigo-300">{event.eligibility}</p>
                             </div>
+                        )}
 
-                            {/* Team Details Section */}
-                            {(event.leader || event.members || event.noOfTeams) && (
-                                <div className="p-6 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
-                                        JD Team Intelligence
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        {event.leader && (
-                                            <div>
-                                                <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Squad Leader</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200">{event.leader}</span>
-                                            </div>
-                                        )}
-                                        {event.members && (
-                                            <div>
-                                                <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Squad Members</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200">{event.members}</span>
-                                            </div>
-                                        )}
-                                        {event.noOfTeams && (
-                                            <div>
-                                                <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Active Teams</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200">{event.noOfTeams}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {event.website && (
-                                <a
-                                    href={event.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:brightness-110 active:scale-95 transition-all"
-                                >
-                                    <ExternalLink size={20} />
-                                    SYNC WITH OFFICIAL WEBSITE
-                                </a>
-                            )}
-                        </div>
-
-                        {/* Status Management */}
-                        <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-800">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2 justify-center">
-                                Override Event Status
-                            </h4>
-                            <div className="flex flex-wrap justify-center gap-3">
-                                {['Open', 'Closed', 'Attended', 'Won', 'Blocked'].map(status => (
+                        {/* Status Buttons */}
+                        {canManage && (
+                            <div className="flex flex-wrap gap-1.5 justify-center mb-2">
+                                {Object.values(EventStatus || {}).map(status => (
                                     <button
                                         key={status}
                                         onClick={() => handleStatusChange(status)}
                                         className={cn(
-                                            "px-5 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                            "px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border",
                                             event.status === status
-                                                ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20 scale-105"
-                                                : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300"
+                                                ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                                                : "bg-white dark:bg-slate-900 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-indigo-300"
                                         )}
                                     >
                                         {status}
                                     </button>
                                 ))}
                             </div>
-                        </div>
-                    </div>
+                        )}
 
-                    {/* Actions */}
-                    <div className="flex items-center justify-between px-8 py-6 bg-slate-50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-gray-700">
+                        {event.website && (
+                            <a
+                                href={event.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 w-full h-10 sm:h-11 bg-indigo-600 text-white rounded-lg flex items-center justify-center gap-2 group hover:brightness-110 transition-all font-black text-[9px] uppercase tracking-widest"
+                            >
+                                <Globe size={14} />
+                                Project Website
+                                <ExternalLink size={12} />
+                            </a>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer Section */}
+                <div className="px-3 py-2.5 sm:px-4 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 shrink-0">
+                    {canManage && (
                         <button
                             onClick={handleDelete}
-                            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900/50 rounded-xl font-bold hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                            className="flex items-center gap-1.5 px-3 py-2 text-rose-500 font-black text-[8px] uppercase tracking-widest hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
                         >
-                            <Trash2 size={20} />
-                            Expunge Event
+                            <Trash2 size={12} />
+                            Delete
                         </button>
+                    )}
+
+                    <div className="flex items-center gap-2 ml-auto">
+                        {canManage && (
+                            <button
+                                onClick={handleEdit}
+                                className="px-3 sm:px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-black text-[8px] uppercase tracking-widest hover:brightness-95 transition-all flex items-center gap-1.5"
+                            >
+                                <Edit size={12} />
+                                Edit Details
+                            </button>
+                        )}
                         <button
                             onClick={() => closeModal('eventDetails')}
-                            className="px-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold hover:brightness-110 transition-all shadow-lg"
+                            className="px-4 sm:px-6 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-black text-[8px] uppercase tracking-widest hover:brightness-110 transition-all"
                         >
-                            Secure & Close
+                            Dismiss
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+
+            {/* FULL SCREEN IMAGE ZOOM MODAL */}
+            <AnimatePresence>
+                {isZoomed && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setIsZoomed(false)}
+                        className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 cursor-zoom-out"
+                    >
+                        <motion.img
+                            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+                            src={event.posterBlob ? URL.createObjectURL(event.posterBlob) : (resolveImageUrl(event.posterUrl) || '')}
+                            className="max-w-full max-h-screen object-contain rounded-lg shadow-2xl"
+                        />
+                        <button className="absolute top-4 right-4 text-white/50 hover:text-white p-2 bg-white/10 rounded-full backdrop-blur-md">
+                            <X size={24} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>,
+        document.body
     );
 };
 

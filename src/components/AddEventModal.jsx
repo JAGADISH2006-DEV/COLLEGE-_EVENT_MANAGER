@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
-import { addEvent, EventType } from '../db';
+import { addEvent } from '../db';
 import { parseDate } from '../csvUtils';
-import { X, Upload, Image as ImageIcon, Sparkles, Wand2 } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Sparkles, Wand2, Info, MapPin, Calendar, Trophy, Users, Globe, Terminal, ShieldCheck, Check, Save, Plus, Clock } from 'lucide-react';
 import { cn } from '../utils';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Defined locally to prevent circular dependency issues crash
+const EventType = {
+    HACKATHON: 'Hackathon',
+    PAPER_PRESENTATION: 'Paper Presentation',
+    PROJECT_EXPO: 'Project Expo',
+    WORKSHOP: 'Workshop',
+    CONTEST: 'Contest',
+    SEMINAR: 'Seminar',
+    CONFERENCE: 'Conference',
+    OTHER: 'Other'
+};
 
 const PreviewImage = ({ blob }) => {
     const [url, setUrl] = useState(null);
@@ -16,13 +29,20 @@ const PreviewImage = ({ blob }) => {
     }, [blob]);
 
     if (!url) return null;
-    return <img src={url} alt="Preview" className="h-32 w-auto rounded-lg shadow-md" />;
+    return (
+        <div className="relative group rounded-2xl overflow-hidden shadow-xl border-2 border-white/20">
+            <img src={url} alt="Preview" className="h-40 w-full object-cover group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] font-black text-white uppercase tracking-widest bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30">Intelligence Scan Subject</span>
+            </div>
+        </div>
+    );
 };
 
 const AddEventModal = () => {
     const modals = useAppStore((state) => state.modals);
     const closeModal = useAppStore((state) => state.closeModal);
-    const isOpen = modals.addEvent;
+    const isOpen = modals && modals.addEvent;
 
     const [formData, setFormData] = useState({
         collegeName: '',
@@ -42,105 +62,61 @@ const AddEventModal = () => {
         website: '',
         description: '',
         teamSize: '1',
-        eligibility: ''
+        teamName: '',
+        eligibility: '',
+        leader: '',
+        members: '',
+        contact1: '',
+        contact2: ''
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [activeTab, setActiveTab] = useState('basic');
 
-    // Auto-scroll to top when modal opens
     useEffect(() => {
         if (isOpen) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
         }
-
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
+        return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen]);
 
     const handleAIAnalysis = async () => {
         if (!formData.posterBlob && !formData.posterUrl) {
-            alert('Please upload a poster or provide a URL first!');
+            alert('SYSTEM: Neural Input Source required for AI Analysis.');
             return;
         }
 
         setIsAnalyzing(true);
-        console.log('[RedDot AI] Initializing Neural Vision Engine...');
-
         try {
             let extractedText = "";
-            let sourceLabel = "";
-
             if (formData.posterBlob) {
-                sourceLabel = `Local Image: ${formData.posterBlob.name}`;
-                // REAL OCR using Tesseract.js (window.Tesseract is globally available from CDN in index.html)
                 const { data: { text } } = await window.Tesseract.recognize(
                     formData.posterBlob,
                     'eng',
-                    { logger: m => console.log(`[OCR Process] ${Math.round(m.progress * 100)}%`) }
+                    { logger: m => console.log(`[Neural Vision] ${Math.round(m.progress * 100)}%`) }
                 );
                 extractedText = text;
             } else {
-                sourceLabel = `Remote URL: ${formData.posterUrl}`;
-                // Fallback for URLs
-                extractedText = `SIMULATED_URL_SCAN: ${formData.posterUrl}\nEvent: National Level Hackathon\nCollege: IIT Mumbai\nDate: 2024-12-15\nPrize: 100000`;
+                extractedText = "Simulated Scan: Global Hackathon Event hosted by MIT Manipal on Dec 20, 2024. Prize Pool: 50,000 INR.";
             }
 
-            console.log('[RedDot AI] Text Extracted:', extractedText);
-
-            // RedDot Intelligence Parser
             const textLower = extractedText.toLowerCase();
             const lines = extractedText.split('\n').map(l => l.trim()).filter(l => l.length > 5);
 
-            // Intelligence: Identify Event Name (usually first major title line)
-            let detectedEventName = lines[0] || "Unknown Event";
-
-            // Intelligence: Identify College (Look for identifying keywords)
-            const collegeKeywords = ['college', 'university', 'institute', 'iit', 'bits', 'nit', 'technology', 'engineering'];
-            let detectedCollege = lines.find(line => collegeKeywords.some(key => line.toLowerCase().includes(key))) || "Unknown Institution";
-
-            // Intelligence: Identify Prize (Regex for currency)
-            const prizeMatch = extractedText.match(/(?:(?:Rs|INR|₹|Prize|Worth)\.?\s*)([0-9,]+)/i);
-            const detectedPrize = prizeMatch ? prizeMatch[1].replace(/,/g, '') : "0";
-
-            // Intelligence: Map to Form
-            const today = new Date();
-            const futureDate = new Date(today);
-            futureDate.setDate(today.getDate() + 30);
-            const futureDateStr = futureDate.toISOString().split('T')[0];
-
-            // Better date detection (very basic)
-            const dateMatch = extractedText.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
-            let detectedDate = dateMatch ? parseDate(dateMatch[0]) : futureDate;
-            if (isNaN(new Date(detectedDate).getTime())) detectedDate = futureDate;
-            const detectedDateStr = new Date(detectedDate).toISOString().split('T')[0];
-
             setFormData(prev => ({
                 ...prev,
-                eventName: detectedEventName,
-                collegeName: detectedCollege,
-                prizeAmount: detectedPrize,
-                description: `Neural Intelligence Analysis [${sourceLabel}] verified.\n\nRaw Data Fragment: ${extractedText.substring(0, 150)}...`,
-                registrationDeadline: detectedDateStr,
-                startDate: detectedDateStr,
-                endDate: detectedDateStr,
-                eventType: textLower.includes('hack') ? EventType.HACKATHON :
-                    textLower.includes('expo') ? EventType.PROJECT_EXPO :
-                        textLower.includes('workshop') ? EventType.WORKSHOP :
-                            textLower.includes('contest') ? EventType.CONTEST :
-                                EventType.PAPER_PRESENTATION,
-                location: detectedCollege !== "Unknown Institution" ? `${detectedCollege} Campus` : "Detected Venue"
+                eventName: lines[0] || prev.eventName,
+                prizeAmount: extractedText.match(/(?:(?:INR|₹|Prize|Worth)\.?\s*)([0-9,]+)/i)?.[1].replace(/,/g, '') || prev.prizeAmount,
+                description: `AI ANALYZED: ${extractedText.substring(0, 100)}...`,
+                eventType: textLower.includes('hack') ? EventType.HACKATHON : EventType.CONTEST
             }));
 
-            alert(`RedDot AI Intelligence Complete!\n\nSOURCE: ${sourceLabel}\n\nDETECTION LOG:\n- Event Found: ${detectedEventName}\n- Institution Found: ${detectedCollege}\n- Prize Identified: ₹${detectedPrize}\n\nThe form has been auto-populated with active neural data.`);
-
+            alert('SYSTEM: Neural Protocol Complete. Data successfully injected into form matrix.');
         } catch (error) {
-            console.error('[RedDot AI] Vision Error:', error);
-            alert(`Neural Error: The AI could not process the image pixels.\nReason: ${error.message}\n\nPlease ensure the image contains clear English text.`);
+            alert(`Neural Error: ${error.message}`);
         } finally {
             setIsAnalyzing(false);
         }
@@ -148,26 +124,17 @@ const AddEventModal = () => {
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setFormData(prev => ({
-                ...prev,
-                posterBlob: file
-            }));
-        }
+        if (file) setFormData(prev => ({ ...prev, posterBlob: file }));
     };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-
         try {
             const eventData = {
                 ...formData,
@@ -176,35 +143,11 @@ const AddEventModal = () => {
                 teamSize: parseInt(formData.teamSize) || 1,
                 contactNumbers: formData.contactNumbers.split(',').map(c => c.trim()).filter(Boolean)
             };
-
             await addEvent(eventData);
-
-            // Reset form
-            setFormData({
-                collegeName: '',
-                eventName: '',
-                eventType: EventType.HACKATHON,
-                registrationDeadline: '',
-                startDate: '',
-                endDate: '',
-                prizeAmount: '',
-                registrationFee: '',
-                accommodation: false,
-                location: '',
-                isOnline: false,
-                contactNumbers: '',
-                posterUrl: '',
-                posterBlob: null,
-                website: '',
-                description: '',
-                teamSize: '1',
-                eligibility: ''
-            });
-
             closeModal('addEvent');
+            setFormData({ collegeName: '', eventName: '', eventType: EventType.HACKATHON, registrationDeadline: '', startDate: '', endDate: '', prizeAmount: '', registrationFee: '', accommodation: false, location: '', isOnline: false, contactNumbers: '', posterUrl: '', posterBlob: null, website: '', description: '', teamSize: '1', teamName: '', eligibility: '', leader: '', members: '', contact1: '', contact2: '' });
         } catch (error) {
-            console.error('CRITICAL ERROR ADDING EVENT:', error);
-            alert(`System Error: ${error.message || 'Unknown database error'}. Please check if all fields are valid.`);
+            alert(`CRITICAL ERROR: ${error.message}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -212,344 +155,233 @@ const AddEventModal = () => {
 
     if (!isOpen) return null;
 
+    const tabs = [
+        { id: 'basic', label: 'Basic Info', icon: Terminal },
+        { id: 'logistics', label: 'Logistics', icon: Globe },
+        { id: 'team', label: 'Team Info', icon: Users },
+        { id: 'ai', label: 'AI Assistant', icon: Sparkles }
+    ];
+
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                {/* Backdrop */}
-                <div
-                    className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-                    onClick={() => closeModal('addEvent')}
-                ></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => closeModal('addEvent')} />
 
-                {/* Modal */}
-                <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            Add New Event
-                        </h3>
-                        <button
-                            onClick={() => closeModal('addEvent')}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                        >
-                            <X size={20} />
-                        </button>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-[0_64px_128px_-24px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden flex flex-col max-h-[95vh]"
+            >
+                {/* Header Subsystem */}
+                <div className="bg-slate-900 p-8 text-white relative flex items-center justify-between border-b border-white/10">
+                    <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 border border-white/20">
+                            <Plus size={28} strokeWidth={3} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black tracking-tight leading-none mb-1">Add <span className="text-indigo-400">Event</span></h2>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Create a new event entry</p>
+                        </div>
                     </div>
+                    <button onClick={() => closeModal('addEvent')} className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 transition-all">
+                        <X size={24} />
+                    </button>
+                </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-                        <div className="space-y-4">
-                            {/* Basic Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Event Name *</label>
-                                    <input
-                                        type="text"
-                                        name="eventName"
-                                        value={formData.eventName}
-                                        onChange={handleChange}
-                                        required
-                                        className="input"
-                                        placeholder="CODE-THON '24"
-                                    />
+                {/* Tab Navigation */}
+                <div className="flex items-center gap-2 px-8 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0", isActive ? "bg-slate-900 text-white shadow-xl -translate-y-1" : "text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800")}>
+                                <Icon size={14} strokeWidth={3} /> {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Tactical Input Matrix */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+                    <form id="add-event-form" onSubmit={handleSubmit}>
+                        <div className={cn("space-y-10", activeTab === 'basic' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="space-y-6">
+                                    <div className="form-group">
+                                        <label className="label-premium">Event Name</label>
+                                        <input type="text" name="eventName" value={formData.eventName} onChange={handleChange} required={activeTab === 'basic'} className="input-premium" placeholder="e.g. Hackfest 2026" />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium">College Name</label>
+                                        <input type="text" name="collegeName" value={formData.collegeName} onChange={handleChange} required={activeTab === 'basic'} className="input-premium" placeholder="Host College Name" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="form-group">
+                                            <label className="label-premium">Event Type</label>
+                                            <select name="eventType" value={formData.eventType} onChange={handleChange} required={activeTab === 'basic'} className="input-premium">
+                                                {Object.values(EventType).map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="label-premium">Team Size</label>
+                                            <input type="number" name="teamSize" value={formData.teamSize} onChange={handleChange} className="input-premium" min="1" />
+                                        </div>
+                                        {parseInt(formData.teamSize) > 1 && (
+                                            <div className="form-group col-span-2">
+                                                <label className="label-premium">Team Name</label>
+                                                <input type="text" name="teamName" value={formData.teamName} onChange={handleChange} className="input-premium" placeholder="e.g. The Avengers" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-
-                                <div>
-                                    <label className="label">College Name *</label>
-                                    <input
-                                        type="text"
-                                        name="collegeName"
-                                        value={formData.collegeName}
-                                        onChange={handleChange}
-                                        required
-                                        className="input"
-                                        placeholder="ABC Engineering College"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Event Type */}
-                            <div>
-                                <label className="label">Event Type *</label>
-                                <select
-                                    name="eventType"
-                                    value={formData.eventType}
-                                    onChange={handleChange}
-                                    required
-                                    className="input"
-                                >
-                                    {Object.values(EventType).map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Dates */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="label">Registration Deadline *</label>
-                                    <input
-                                        type="date"
-                                        name="registrationDeadline"
-                                        value={formData.registrationDeadline}
-                                        onChange={handleChange}
-                                        required
-                                        className="input"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="label">Start Date *</label>
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={formData.startDate}
-                                        onChange={handleChange}
-                                        required
-                                        className="input"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="label">End Date *</label>
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={formData.endDate}
-                                        onChange={handleChange}
-                                        required
-                                        className="input"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Prize & Fee */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Prize Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="prizeAmount"
-                                        value={formData.prizeAmount}
-                                        onChange={handleChange}
-                                        className="input"
-                                        placeholder="50000"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="label">Registration Fee (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="registrationFee"
-                                        value={formData.registrationFee}
-                                        onChange={handleChange}
-                                        className="input"
-                                        placeholder="500"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Location */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Location</label>
-                                    <input
-                                        type="text"
-                                        name="location"
-                                        value={formData.location}
-                                        onChange={handleChange}
-                                        className="input"
-                                        placeholder="Bangalore"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="label">Team Size</label>
-                                    <input
-                                        type="number"
-                                        name="teamSize"
-                                        value={formData.teamSize}
-                                        onChange={handleChange}
-                                        className="input"
-                                        min="1"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Checkboxes */}
-                            <div className="flex gap-6">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        name="isOnline"
-                                        checked={formData.isOnline}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-                                    />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Online Event</span>
-                                </label>
-
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        name="accommodation"
-                                        checked={formData.accommodation}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-                                    />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Accommodation Provided</span>
-                                </label>
-                            </div>
-
-                            {/* Contact & Links */}
-                            <div>
-                                <label className="label">Contact Numbers (comma-separated)</label>
-                                <input
-                                    type="text"
-                                    name="contactNumbers"
-                                    value={formData.contactNumbers}
-                                    onChange={handleChange}
-                                    className="input"
-                                    placeholder="9876543210, 9876543211"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="label">Website / Registration Link</label>
-                                <input
-                                    type="url"
-                                    name="website"
-                                    value={formData.website}
-                                    onChange={handleChange}
-                                    className="input"
-                                    placeholder="https://example.com/register"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Poster Photo (Upload)</label>
-                                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-slate-700 border-dashed rounded-xl hover:border-indigo-500 transition-colors">
-                                        <div className="space-y-1 text-center">
-                                            {formData.posterBlob ? (
-                                                <div className="relative inline-block">
-                                                    <PreviewImage blob={formData.posterBlob} />
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData(prev => ({ ...prev, posterBlob: null }))}
-                                                        className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg"
-                                                    >
-                                                        <X size={12} />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                                    <div className="flex text-sm text-gray-600 dark:text-gray-400">
-                                                        <label className="relative cursor-pointer bg-white dark:bg-slate-800 rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
-                                                            <span>Upload a file</span>
-                                                            <input type="file" name="posterBlob" className="sr-only" onChange={handleFileChange} accept="image/*" />
-                                                        </label>
-                                                        <p className="pl-1">or drag and drop</p>
-                                                    </div>
-                                                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
-                                                </>
-                                            )}
+                                <div className="bg-slate-50 dark:bg-slate-800/40 p-10 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 relative group">
+                                    <div className="absolute top-8 right-8 text-indigo-200 opacity-20 group-hover:rotate-12 transition-transform duration-700">
+                                        <Calendar size={120} />
+                                    </div>
+                                    <h4 className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600 mb-8">
+                                        <Clock size={16} strokeWidth={3} /> Event Schedule
+                                    </h4>
+                                    <div className="space-y-6 relative z-10">
+                                        <div className="form-group">
+                                            <label className="label-premium">Registration Deadline</label>
+                                            <input type="date" name="registrationDeadline" value={formData.registrationDeadline} onChange={handleChange} required={activeTab === 'basic'} className="input-premium bg-white dark:bg-slate-900" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="form-group">
+                                                <label className="label-premium">Start Date</label>
+                                                <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} required={activeTab === 'basic'} className="input-premium bg-white dark:bg-slate-900" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="label-premium">End Date</label>
+                                                <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} required={activeTab === 'basic'} className="input-premium bg-white dark:bg-slate-900" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
 
-                                <div>
-                                    <label className="label">Poster URL (Alternative)</label>
-                                    <input
-                                        type="url"
-                                        name="posterUrl"
-                                        value={formData.posterUrl}
-                                        onChange={handleChange}
-                                        className="input"
-                                        placeholder="https://example.com/poster.jpg"
-                                    />
-                                    <div className="mt-3">
-                                        <button
-                                            type="button"
-                                            onClick={handleAIAnalysis}
-                                            disabled={isAnalyzing || (!formData.posterBlob && !formData.posterUrl)}
-                                            className={cn(
-                                                "w-full btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all shadow-lg",
-                                                isAnalyzing
-                                                    ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                    : "bg-gradient-to-r from-rose-500 to-amber-500 text-white hover:shadow-rose-500/30 hover:brightness-110 active:scale-95"
-                                            )}
-                                        >
-                                            {isAnalyzing ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    AI Scanning...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Sparkles size={18} />
-                                                    RedDot AI Intelligence Scan
-                                                </>
-                                            )}
-                                        </button>
-                                        <p className="text-[10px] text-center text-slate-400 mt-2 px-1 italic">
-                                            Our RedDot AI will extract all details from your poster automatically.
-                                        </p>
+                        <div className={cn("space-y-10", activeTab === 'logistics' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="space-y-6">
+                                    <div className="form-group">
+                                        <label className="label-premium">Event Venue</label>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-rose-500" size={20} />
+                                            <input type="text" name="location" value={formData.location} onChange={handleChange} className="input-premium pl-16 font-black" placeholder="Campus Name / Venue" />
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium">Registration Fee (₹)</label>
+                                        <input type="number" name="registrationFee" value={formData.registrationFee} onChange={handleChange} className="input-premium" placeholder="0" />
+                                    </div>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="form-group">
+                                        <label className="label-premium">Total Prize amount (₹)</label>
+                                        <input type="number" name="prizeAmount" value={formData.prizeAmount} onChange={handleChange} className="input-premium" placeholder="0" />
+                                    </div>
+
+                                    <div className="flex flex-col gap-4">
+                                        <label className="flex items-center gap-6 p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-950/20 border-2 border-transparent has-[:checked]:border-indigo-600 cursor-pointer group transition-all">
+                                            <input type="checkbox" name="isOnline" checked={formData.isOnline} onChange={handleChange} className="hidden" />
+                                            <div className={cn("w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all", formData.isOnline ? "bg-indigo-600 border-indigo-600" : "border-slate-300")}><Check size={16} className="text-white" /></div>
+                                            <div><span className="block text-[11px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400">Online Event</span><span className="text-[10px] text-slate-500">Enable for virtual events</span></div>
+                                        </label>
+                                        <label className="flex items-center gap-6 p-6 rounded-[2rem] bg-rose-50 dark:bg-rose-950/20 border-2 border-transparent has-[:checked]:border-rose-600 cursor-pointer group transition-all">
+                                            <input type="checkbox" name="accommodation" checked={formData.accommodation} onChange={handleChange} className="hidden" />
+                                            <div className={cn("w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all", formData.accommodation ? "bg-rose-600 border-rose-600" : "border-slate-300")}><Check size={16} className="text-white" /></div>
+                                            <div><span className="block text-[11px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-400">Accommodation</span><span className="text-[10px] text-slate-500">Stay provided by college</span></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="form-group col-span-1 md:col-span-2">
+                                    <label className="label-premium">Registration Link</label>
+                                    <div className="relative">
+                                        <Globe className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
+                                        <input type="url" name="website" value={formData.website} onChange={handleChange} className="input-premium pl-16 text-indigo-600 font-black" placeholder="Official Website URL" />
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Description */}
-                            <div>
-                                <label className="label">Description</label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    rows="3"
-                                    className="input"
-                                    placeholder="Event details..."
-                                ></textarea>
-                            </div>
-
-                            <div>
-                                <label className="label">Eligibility</label>
-                                <input
-                                    type="text"
-                                    name="eligibility"
-                                    value={formData.eligibility}
-                                    onChange={handleChange}
-                                    className="input"
-                                    placeholder="B.Tech students"
-                                />
+                        <div className={cn("space-y-10", activeTab === 'team' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="space-y-8">
+                                    <div className="form-group">
+                                        <label className="label-premium">Team Leader Name</label>
+                                        <input type="text" name="leader" value={formData.leader} onChange={handleChange} className="input-premium" placeholder="Name of leader" />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium">Eligibility Criteria</label>
+                                        <input type="text" name="eligibility" value={formData.eligibility} onChange={handleChange} className="input-premium" placeholder="e.g. All Departments" />
+                                    </div>
+                                </div>
+                                <div className="space-y-6 bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <ShieldCheck size={20} className="text-indigo-400" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">Contact Details</span>
+                                    </div>
+                                    <input type="text" name="contact1" value={formData.contact1} onChange={handleChange} className="w-full bg-slate-800 border-0 rounded-2xl px-6 py-4 font-mono text-sm focus:ring-2 ring-indigo-500 outline-none" placeholder="Primary Contact Number" />
+                                    <input type="text" name="contact2" value={formData.contact2} onChange={handleChange} className="w-full bg-slate-800 border-0 rounded-2xl px-6 py-4 font-mono text-sm focus:ring-2 ring-indigo-500 outline-none" placeholder="Secondary Contact Number" />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <button
-                                type="button"
-                                onClick={() => closeModal('addEvent')}
-                                className="btn btn-outline"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="btn btn-primary"
-                            >
-                                {isSubmitting ? 'Adding...' : 'Add Event'}
-                            </button>
+                        <div className={cn("space-y-10", activeTab === 'ai' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <div className="space-y-6">
+                                    <label className="label-premium">Event Poster AI Scan</label>
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center min-h-[250px] relative group overflow-hidden">
+                                        {formData.posterBlob ? <PreviewImage blob={formData.posterBlob} /> : (
+                                            <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full p-8">
+                                                <Upload size={48} className="text-slate-300 mb-6 group-hover:text-indigo-600 group-hover:-translate-y-2 transition-all duration-500" />
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Upload Poster</span>
+                                                <span className="text-[10px] text-slate-400 font-bold">Image will be analyzed by AI</span>
+                                                <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                                            </label>
+                                        )}
+                                    </div>
+                                    <button type="button" onClick={handleAIAnalysis} disabled={isAnalyzing || (!formData.posterBlob && !formData.posterUrl)} className={cn("w-full h-16 rounded-2xl flex items-center justify-center gap-4 font-black uppercase text-[11px] tracking-[0.3em] transition-all shadow-2xl", isAnalyzing ? "bg-slate-100 text-slate-400" : "bg-gradient-to-r from-rose-500 via-indigo-600 to-violet-700 text-white hover:scale-105 shadow-indigo-500/30")}>
+                                        {isAnalyzing ? <div className="w-5 h-5 border-4 border-white border-t-transparent rounded-full animate-spin" /> : <><Sparkles size={20} /> Start AI Analysis</>}
+                                    </button>
+                                </div>
+                                <div className="space-y-8 flex flex-col justify-center">
+                                    <div className="p-8 bg-indigo-50 dark:bg-indigo-900/20 rounded-[2.5rem] border-2 border-indigo-100 dark:border-indigo-800">
+                                        <h4 className="text-indigo-700 dark:text-indigo-400 font-black text-sm uppercase mb-4 flex items-center gap-2"><Info size={18} /> AI Assistant</h4>
+                                        <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 font-bold leading-relaxed">Our AI assistant will scan your poster to automatically identify event names, dates, and prize details.</p>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium text-indigo-500">Asset Neural Link (URL Alternate)</label>
+                                        <input type="url" name="posterUrl" value={formData.posterUrl} onChange={handleChange} className="input-premium border-indigo-100 dark:border-indigo-900 shadow-xl" placeholder="https://cdn.example.com/asset.jpg" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
+
+                {/* Modal Actions */}
+                <div className="px-10 py-8 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-6">
+                    <button type="button" onClick={() => closeModal('addEvent')} className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Cancel</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting} className="px-12 h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4">
+                        {isSubmitting ? <div className="w-5 h-5 border-4 border-slate-400 border-t-white rounded-full animate-spin" /> : <><Save size={20} /> Save Event</>}
+                    </button>
+                </div>
+            </motion.div>
+        </div >
     );
 };
+
+const StatCardMock = ({ title, value, icon: Icon, color }) => (
+    <div className="bg-slate-50 dark:bg-slate-800/40 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center gap-8 group">
+        <div className={cn("w-20 h-20 rounded-[1.8rem] bg-white dark:bg-slate-900 shadow-2xl flex items-center justify-center border transition-all duration-700 group-hover:rotate-12", color.replace('text-', 'border-'))}>
+            <Icon size={32} className={color} strokeWidth={3} />
+        </div>
+        <div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">{title}</span>
+            <span className={cn("text-3xl font-black tracking-tight", color)}>{value > 0 ? `₹${Number(value).toLocaleString()}` : 'RECONNAISSANCE REQUIRED'}</span>
+        </div>
+    </div>
+);
 
 export default AddEventModal;

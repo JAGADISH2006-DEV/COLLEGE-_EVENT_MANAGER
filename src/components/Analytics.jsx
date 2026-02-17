@@ -1,12 +1,51 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store';
 import { db, EventType } from '../db';
+import EventCard from './EventCard';
 import { BarChart3, TrendingUp, Award, DollarSign, Target, Zap, Globe, Map } from 'lucide-react';
 import { cn } from '../utils';
 
+const StatCard = ({ title, value, icon: Icon, subtitle, colorClass, delay = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay }}
+        className="glass-card p-6 relative overflow-hidden group"
+    >
+        <div className={cn("absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-5 blur-2xl group-hover:opacity-10 transition-opacity", colorClass)} />
+        <div className="flex items-start justify-between mb-4">
+            <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
+                <Icon size={24} className={cn("transition-transform group-hover:scale-110 duration-300", colorClass.replace('bg-', 'text-'))} />
+            </div>
+            {subtitle && (
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                    {subtitle}
+                </span>
+            )}
+        </div>
+        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-1">{title}</h3>
+        <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{value}</p>
+    </motion.div>
+);
+
 const Analytics = () => {
+    // const navigate = useNavigate(); // Unused but kept for future
+    // const setFilters = useAppStore((state) => state.setFilters); // Unused
+    // const setViewMode = useAppStore((state) => state.setViewMode); // Unused
+
     const events = useLiveQuery(() => db.events.toArray(), []);
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: null, title: '' });
+
+    const openAnalyticsModal = (type, title) => {
+        setModalConfig({ isOpen: true, type, title });
+    };
+
+    const closeAnalyticsModal = () => {
+        setModalConfig({ isOpen: false, type: null, title: '' });
+    };
 
     const analytics = useMemo(() => {
         if (!events || events.length === 0) return null;
@@ -50,6 +89,17 @@ const Analytics = () => {
         };
     }, [events]);
 
+    const filteredEvents = useMemo(() => {
+        if (!events) return [];
+        if (modalConfig.type === 'won') {
+            return events.filter(e => e.status === 'Won');
+        }
+        if (modalConfig.type === 'participated') {
+            return events.filter(e => ['Attended', 'Won', 'Registered'].includes(e.status));
+        }
+        return [];
+    }, [events, modalConfig.type]);
+
     if (!events) {
         return (
             <div className="space-y-8 py-8 animate-pulse">
@@ -71,31 +121,8 @@ const Analytics = () => {
         );
     }
 
-    const StatCard = ({ title, value, icon: Icon, subtitle, colorClass, delay = 0 }) => (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay }}
-            className="glass-card p-6 relative overflow-hidden group"
-        >
-            <div className={cn("absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-5 blur-2xl group-hover:opacity-10 transition-opacity", colorClass)} />
-            <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
-                    <Icon size={24} className={cn("transition-transform group-hover:scale-110 duration-300", colorClass.replace('bg-', 'text-'))} />
-                </div>
-                {subtitle && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                        {subtitle}
-                    </span>
-                )}
-            </div>
-            <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-1">{title}</h3>
-            <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{value}</p>
-        </motion.div>
-    );
-
     return (
-        <div className="pb-20">
+        <div className="pb-20 relative">
             <div className="mb-10">
                 <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
                     Performance <span className="text-indigo-600">Analytics</span>
@@ -105,21 +132,25 @@ const Analytics = () => {
 
             {/* Top Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard
-                    title="Total Participations"
-                    value={analytics.total}
-                    icon={Target}
-                    colorClass="bg-indigo-500"
-                    delay={0.1}
-                />
-                <StatCard
-                    title="Events Won"
-                    value={analytics.wonEvents}
-                    icon={Award}
-                    subtitle={`${analytics.total > 0 ? ((analytics.wonEvents / analytics.total) * 100).toFixed(0) : 0}% WIN RATE`}
-                    colorClass="bg-amber-500"
-                    delay={0.2}
-                />
+                <div onClick={() => openAnalyticsModal('participated', 'Total Participations')} className="cursor-pointer transition-transform hover:scale-[1.02] active:scale-95">
+                    <StatCard
+                        title="Total Participations"
+                        value={analytics.total}
+                        icon={Target}
+                        colorClass="bg-indigo-500"
+                        delay={0.1}
+                    />
+                </div>
+                <div onClick={() => openAnalyticsModal('won', 'Events Won')} className="cursor-pointer transition-transform hover:scale-[1.02] active:scale-95">
+                    <StatCard
+                        title="Events Won"
+                        value={analytics.wonEvents}
+                        icon={Award}
+                        subtitle={`${analytics.total > 0 ? ((analytics.wonEvents / analytics.total) * 100).toFixed(0) : 0}% WIN RATE`}
+                        colorClass="bg-amber-500"
+                        delay={0.2}
+                    />
+                </div>
                 <StatCard
                     title="Total Prize Won"
                     value={`₹${(analytics.wonPrize / 1000).toFixed(1)}k`}
@@ -132,12 +163,12 @@ const Analytics = () => {
                     title="Profitability (ROI)"
                     value={`${analytics.roi.toFixed(0)}%`}
                     icon={TrendingUp}
-                    subtitle="INVESTMENT RETURN"
                     colorClass={analytics.roi >= 0 ? "bg-emerald-500" : "bg-rose-500"}
                     delay={0.4}
                 />
             </div>
 
+            {/* ... Rest of the existing analytics charts ... */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Mode Distribution */}
                 <motion.div
@@ -239,7 +270,62 @@ const Analytics = () => {
                     ))}
                 </div>
             </motion.div>
-        </div>
+
+            {/* DRILL DOWN MODAL */}
+            <AnimatePresence>
+                {modalConfig.isOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={closeAnalyticsModal}
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full sm:max-w-4xl bg-slate-50 dark:bg-slate-900 rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl border-t sm:border border-white/10 flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh]"
+                        >
+                            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900 rounded-t-[2rem]">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{modalConfig.title}</h2>
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+                                        {filteredEvents.length} Record{filteredEvents.length !== 1 ? 's' : ''} Found
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={closeAnalyticsModal}
+                                    className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                >
+                                    {/* Using SVG directly directly to ensure it works without import issues */}
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/20">
+                                {filteredEvents.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-fr">
+                                        {filteredEvents.map((event) => (
+                                            <div key={event.id} className="transform transition-transform hover:scale-[1.01] h-full">
+                                                <EventCard event={event} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-50 py-12">
+                                        <Target size={48} className="mb-4" />
+                                        <p className="font-bold">No events match this criteria.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+                }
+            </AnimatePresence >
+        </div >
     );
 };
 

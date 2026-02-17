@@ -1,26 +1,36 @@
-// Zustand Store for Global State Management
+/**
+ * 🏪 ZUSTAND GLOBAL STORE
+ * 
+ * Think of this as the "Brain" of the application.
+ * It manages the app state (theme, user identity, configurations) and 
+ * ensures that when one part of the app changes, the rest stays in sync.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export const useAppStore = create(
-    persist(
+    persist( // This middleware automatically saves our store to LocalStorage!
         (set, get) => ({
-            // Theme
+            // --- UI & APPEARANCE ---
             theme: 'light',
             toggleTheme: () => set((state) => ({
                 theme: state.theme === 'light' ? 'dark' : 'light'
             })),
 
-            // View Mode
-            viewMode: 'cards', // 'cards', 'list', 'calendar'
+            viewMode: 'cards', // Choices: 'cards', 'list', 'calendar'
             setViewMode: (mode) => set({ viewMode: mode }),
 
-            // Filters
+            // --- FILTERING LOGIC ---
             filters: {
                 status: 'all',
                 eventType: 'all',
                 search: '',
-                dateRange: 'all' // 'all', 'today', 'week', 'month'
+                dateRange: 'all',
+                prizeRange: 'all',
+                showShortlisted: false,
+                dateFrom: '',
+                dateTo: ''
             },
             setFilters: (filters) => set((state) => ({
                 filters: { ...state.filters, ...filters }
@@ -30,53 +40,69 @@ export const useAppStore = create(
                     status: 'all',
                     eventType: 'all',
                     search: '',
-                    dateRange: 'all'
+                    dateRange: 'all',
+                    prizeRange: 'all',
+                    showShortlisted: false,
+                    dateFrom: '',
+                    dateTo: ''
                 }
             }),
 
-            // Sort
-            sortBy: 'priorityScore', // 'priorityScore', 'deadline', 'startDate', 'prizeAmount'
-            sortOrder: 'desc',
-            setSorting: (sortBy, sortOrder) => set({ sortBy, sortOrder }),
+            // --- SORTING & SELECTION ---
+            sortBy: 'priorityScore', // Choices: 'priorityScore', 'deadline', 'startDate', 'prizeAmount'
+            sortOrder: 'desc',      // Choices: 'asc', 'desc'
+            setSorting: (field, order) => set({ sortBy: field, sortOrder: order }),
 
-            // Selected Event
-            selectedEventId: null,
-            setSelectedEvent: (id) => set({ selectedEventId: id }),
+            selectedEvent: null,    // Stores the ID of the event currently being viewed/edited
+            setSelectedEvent: (id) => set({ selectedEvent: id }),
 
-            // Notifications
-            notifications: [],
-            addNotification: (notification) => set((state) => ({
-                notifications: [...state.notifications, {
-                    id: Date.now(),
-                    timestamp: new Date(),
-                    ...notification
-                }]
-            })),
-            removeNotification: (id) => set((state) => ({
-                notifications: state.notifications.filter(n => n.id !== id)
-            })),
-            clearNotifications: () => set({ notifications: [] }),
+            // --- AUTH & TEAM IDENTITY ---
+            // Stores the current Firebase User object
+            user: JSON.parse(localStorage.getItem('reddot_user') || 'null'),
+            userRole: localStorage.getItem('reddot_user_role') || null, // 'admin', 'event_manager', 'member'
 
-            // User Preferences
-            preferences: {
-                notificationsEnabled: true,
-                deadlineReminderDays: [7, 3, 1, 0], // Days before deadline
-                eventReminderDays: [1], // Days before event
-                autoSync: false,
-                compactView: false,
-                isDeleteLocked: true // Only user can delete after unlocking
+            setUser: (user) => {
+                if (user) {
+                    localStorage.setItem('reddot_user', JSON.stringify(user));
+                } else {
+                    localStorage.removeItem('reddot_user');
+                    localStorage.removeItem('reddot_user_role'); // Clear role on logout
+                }
+                set({ user, userRole: user ? get().userRole : null });
             },
-            updatePreferences: (prefs) => set((state) => ({
-                preferences: { ...state.preferences, ...prefs }
-            })),
 
-            // Sync Status
-            lastSyncTime: null,
-            isSyncing: false,
-            setLastSyncTime: (time) => set({ lastSyncTime: time }),
-            setIsSyncing: (syncing) => set({ isSyncing: syncing }),
+            setUserRole: (role) => {
+                if (role) {
+                    localStorage.setItem('reddot_user_role', role);
+                } else {
+                    localStorage.removeItem('reddot_user_role');
+                }
+                set({ userRole: role });
+            },
 
-            // Modal States
+            // --- FIREBASE INFRASTRUCTURE ---
+            // This is the project ID and API key the user provides in Settings
+            firebaseConfig: JSON.parse(localStorage.getItem('firebase_config') || `{
+                "apiKey": "AIzaSyB0aNosXLTCmX3s4M-0Doh4lRPPMX2TRmU",
+                "authDomain": "eventmasterapp-2693e.firebaseapp.com",
+                "projectId": "eventmasterapp-2693e",
+                "storageBucket": "eventmasterapp-2693e.firebasestorage.app",
+                "messagingSenderId": "854191003395",
+                "appId": "1:854191003395:web:a878d82ba5c3b369437b36"
+            }`),
+            setFirebaseConfig: (config) => {
+                localStorage.setItem('firebase_config', JSON.stringify(config));
+                set({ firebaseConfig: config });
+            },
+
+            // Keeps track of whether we are syncing with Firebase or just working locally
+            cloudProvider: localStorage.getItem('cloud_provider') || 'firestore',
+            setCloudProvider: (provider) => {
+                localStorage.setItem('cloud_provider', provider);
+                set({ cloudProvider: provider });
+            },
+
+            // --- MODAL CONTROLLERS ---
             modals: {
                 addEvent: false,
                 editEvent: false,
@@ -90,29 +116,41 @@ export const useAppStore = create(
             closeModal: (modalName) => set((state) => ({
                 modals: { ...state.modals, [modalName]: false }
             })),
-            closeAllModals: () => set({
-                modals: {
-                    addEvent: false,
-                    editEvent: false,
-                    importCSV: false,
-                    eventDetails: false,
-                    settings: false
-                }
-            }),
 
-            // Google Sheets Integration
-            googleSheetUrl: localStorage.getItem('google_script_url') || '',
-            setGoogleSheetUrl: (url) => {
-                localStorage.setItem('google_script_url', url);
-                set({ googleSheetUrl: url });
-            }
+            // --- PREFERENCES ---
+            preferences: {
+                notificationsEnabled: true,
+                autoSync: true,
+                compactView: false,
+                isDeleteLocked: false,
+                pinnedEvents: [],
+                expandedCards: true
+            },
+            updatePreferences: (prefs) => set((state) => ({
+                preferences: { ...state.preferences, ...prefs }
+            })),
+
+            togglePinnedEvent: (id) => set((state) => {
+                const pinned = state.preferences.pinnedEvents || [];
+                const newPinned = pinned.includes(id)
+                    ? pinned.filter(p => p !== id)
+                    : [...pinned, id];
+                return { preferences: { ...state.preferences, pinnedEvents: newPinned } };
+            }),
         }),
         {
-            name: 'event-manager-storage',
+            // The unique name of our storage in the browser's local memory
+            name: 'colleage-event-manager-storage',
+            // We only persist these specific fields (we don't want to persist everything)
             partialize: (state) => ({
                 theme: state.theme,
                 preferences: state.preferences,
-                lastSyncTime: state.lastSyncTime
+                firebaseConfig: state.firebaseConfig,
+                cloudProvider: state.cloudProvider,
+                sortBy: state.sortBy,
+                sortOrder: state.sortOrder,
+                filters: state.filters,
+                viewMode: state.viewMode,
             })
         }
     )

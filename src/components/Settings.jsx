@@ -2,9 +2,9 @@ import React from 'react';
 import { useAppStore } from '../store';
 import { db, exportEventsToCSV } from '../db';
 import { exportToCSV, downloadCSV } from '../csvUtils';
-import { getGoogleScriptUrl, setGoogleScriptUrl, syncFromSheet, syncToSheet, pingCloud, openTestUrl } from '../services/googleSheets';
 import { requestNotificationPermission } from '../notifications';
-import { Bell, Download, Trash2, Moon, Sun, Shield, Database, Smartphone, Activity, AlertCircle, CheckCircle2, Cloud, Loader2, Wifi, WifiOff, ArrowDownToLine, ArrowUpFromLine, Info, ExternalLink } from 'lucide-react';
+import { bulkSyncToFirestore, getAllUsers, updateUserRole } from '../services/firebase';
+import { Bell, Download, Trash2, Moon, Sun, Shield, Database, Smartphone, Cloud, Loader2, ArrowUpFromLine, Info, ChevronRight, LogOut, CheckCircle2, ShieldCheck, UserCog } from 'lucide-react';
 import { cn } from '../utils';
 
 const Settings = () => {
@@ -12,115 +12,50 @@ const Settings = () => {
     const toggleTheme = useAppStore((state) => state.toggleTheme);
     const preferences = useAppStore((state) => state.preferences);
     const updatePreferences = useAppStore((state) => state.updatePreferences);
-    const setGoogleSheetUrlStore = useAppStore((state) => state.setGoogleSheetUrl);
+    const cloudProvider = useAppStore((state) => state.cloudProvider);
+    const setCloudProvider = useAppStore((state) => state.setCloudProvider);
+    const firebaseConfig = useAppStore((state) => state.firebaseConfig);
+    const setFirebaseConfig = useAppStore((state) => state.setFirebaseConfig);
+    const user = useAppStore((state) => state.user);
 
-    const [scriptUrl, setScriptUrlState] = React.useState(getGoogleScriptUrl());
     const [isSyncing, setIsSyncing] = React.useState(false);
-    const [syncAction, setSyncAction] = React.useState(''); // 'pull' or 'push'
-    const [connectionStatus, setConnectionStatus] = React.useState('idle'); // idle, testing, success, error
-    const [statusMessage, setStatusMessage] = React.useState('');
-    const [urlError, setUrlError] = React.useState('');
+    const [usersList, setUsersList] = React.useState([]);
+    const [loadingUsers, setLoadingUsers] = React.useState(false);
 
-    // Validate URL as user types
-    const handleUrlChange = (value) => {
-        setScriptUrlState(value);
-        setUrlError('');
-        setConnectionStatus('idle');
+    const userRole = useAppStore((state) => state.userRole);
 
-        if (value && value.trim()) {
-            if (!value.includes('script.google.com')) {
-                setUrlError('URL must be from script.google.com');
-            } else if (value.trim().endsWith('/dev')) {
-                setUrlError('⚠️ Wrong URL! This is a /dev URL. You need the /exec URL from Deploy → Manage Deployments.');
-            } else if (!value.trim().endsWith('/exec')) {
-                setUrlError('URL should end with /exec');
-            }
+    React.useEffect(() => {
+        if (userRole === 'admin') {
+            setLoadingUsers(true);
+            getAllUsers().then(users => {
+                setUsersList(users);
+                setLoadingUsers(false);
+            });
         }
-    };
+    }, [userRole]);
 
-    const handleSaveScriptUrl = async () => {
+    const handleRoleChange = async (uid, newRole) => {
         try {
-            setGoogleScriptUrl(scriptUrl);
-            setGoogleSheetUrlStore(scriptUrl);
-            setUrlError('');
-            // Immediately test the connection
-            await handleTestConnection();
-        } catch (e) {
-            setUrlError(e.message);
-            setConnectionStatus('error');
-            setStatusMessage(e.message);
+            await updateUserRole(uid, newRole);
+            setUsersList(prev => prev.map(u => u.id === uid ? { ...u, role: newRole } : u));
+            alert(`User role updated to ${newRole}`);
+        } catch (error) {
+            alert('Failed to update role: ' + error.message);
         }
     };
 
-    const handleTestConnection = async () => {
-        setConnectionStatus('testing');
-        setStatusMessage('Connecting to Google Cloud...');
-
-        try {
-            const result = await pingCloud();
-            if (result.success) {
-                setConnectionStatus('success');
-                setStatusMessage(result.message || 'Connected successfully!');
-            } else {
-                setConnectionStatus('error');
-                setStatusMessage(result.error || 'Connection failed.');
-                console.error('[Settings] Connection test failed:', result);
-            }
-        } catch (e) {
-            setConnectionStatus('error');
-            setStatusMessage('Connection error: ' + e.message);
-        }
-    };
-
-    const handleSyncFromCloud = async () => {
-        if (isSyncing) return;
+    const handleInitialPush = async () => {
+        if (!confirm('This will upload all your local events to the Cloud Repository. Continue?')) return;
         setIsSyncing(true);
-        setSyncAction('pull');
-
         try {
-            const result = await syncFromSheet();
-            if (result.success) {
-                if (result.imported === 0 && result.updated === 0 && result.message) {
-                    alert(`⚠️ Pull Complete but no events imported.\n\n${result.message}`);
-                } else {
-                    alert(`✅ Pull Complete!\n\nNew Events Added: ${result.imported}\nExisting Updated: ${result.updated}\nTotal from Cloud: ${result.total}`);
-                }
-                if (result.imported > 0 || result.updated > 0) {
-                    window.location.reload();
-                }
-            } else {
-                alert('❌ Pull Failed:\n\n' + result.error);
-                // Auto-diagnose
-                handleTestConnection();
-            }
+            const events = await db.events.toArray();
+            await bulkSyncToFirestore(events);
+            alert(`✅ Success! ${events.length} events uploaded to Firebase.`);
+            setCloudProvider('firestore');
         } catch (e) {
-            alert('❌ Pull Error:\n\n' + e.message);
+            alert('❌ Sync Error: ' + e.message);
         } finally {
             setIsSyncing(false);
-            setSyncAction('');
-        }
-    };
-
-    const handleSyncToCloud = async () => {
-        if (isSyncing) return;
-        if (!confirm('This will REPLACE all data in the Google Sheet with your local data.\n\nContinue?')) return;
-
-        setIsSyncing(true);
-        setSyncAction('push');
-
-        try {
-            const result = await syncToSheet();
-            if (result.success) {
-                alert(`✅ Push Complete!\n\n${result.count} events uploaded to Google Sheet.`);
-            } else {
-                alert('❌ Push Failed:\n\n' + result.error);
-                handleTestConnection();
-            }
-        } catch (e) {
-            alert('❌ Push Error:\n\n' + e.message);
-        } finally {
-            setIsSyncing(false);
-            setSyncAction('');
         }
     };
 
@@ -130,30 +65,70 @@ const Settings = () => {
             const csv = exportToCSV(events);
             downloadCSV(csv, `events-export-${new Date().toISOString().split('T')[0]}.csv`);
         } catch (error) {
-            console.error('Export error:', error);
             alert('Export failed: ' + error.message);
         }
     };
 
     const handleClearAll = async () => {
-        if (confirm('⚠️ DELETE ALL LOCAL EVENTS?\n\nThis cannot be undone! Make sure you have a backup.\n\nType YES to confirm.')) {
-            try {
-                await db.events.clear();
-                alert('All local events deleted.');
-                window.location.reload();
-            } catch (error) {
-                console.error('Clear error:', error);
-                alert('Failed to clear: ' + error.message);
+        if (confirm('⚠️ DELETE ALL LOCAL EVENTS?\n\nThis cannot be undone! Type YES to confirm.')) {
+            await db.events.clear();
+            alert('All local events deleted.');
+            window.location.reload();
+        }
+    };
+
+    const handleCleanup = async () => {
+        if (!confirm('This will remove duplicate entries and clean up garbage data. Proceed?')) return;
+
+        try {
+            const allEvents = await db.events.toArray();
+            const seen = new Map();
+            const toDelete = [];
+            const toUpdate = [];
+
+            for (const event of allEvents) {
+                // Garbage check
+                if (!event.eventName || event.eventName.length < 2 ||
+                    event.collegeName === 'nlçlçlh' ||
+                    (event.eventName.includes('nlç') && event.collegeName.includes('nlç'))) {
+                    toDelete.push(event.id);
+                    continue;
+                }
+
+                const key = `${event.eventName}__${event.collegeName}`.toLowerCase();
+                if (seen.has(key)) {
+                    const existing = seen.get(key);
+                    // Keep the one with a poster if possible
+                    if (!existing.posterBlob && event.posterBlob) {
+                        toDelete.push(existing.id);
+                        seen.set(key, event);
+                    } else {
+                        toDelete.push(event.id);
+                    }
+                } else {
+                    seen.set(key, event);
+                }
             }
+
+            if (toDelete.length > 0) {
+                await db.transaction('rw', db.events, async () => {
+                    for (const id of toDelete) {
+                        await db.events.delete(id);
+                    }
+                });
+                alert(`✅ Cleanup Complete! Removed ${toDelete.length} garbage/duplicate entries.`);
+            } else {
+                alert('✨ Database is already clean!');
+            }
+        } catch (error) {
+            alert('Cleanup Error: ' + error.message);
         }
     };
 
     const handleNotificationToggle = async (enabled) => {
         if (enabled) {
             const granted = await requestNotificationPermission();
-            if (granted) {
-                updatePreferences({ notificationsEnabled: true });
-            }
+            if (granted) updatePreferences({ notificationsEnabled: true });
         } else {
             updatePreferences({ notificationsEnabled: false });
         }
@@ -170,338 +145,183 @@ const Settings = () => {
                     <p className="text-sm text-slate-500 font-medium">{description}</p>
                 </div>
             </div>
-            <div className="p-6">
-                {children}
-            </div>
+            <div className="p-6">{children}</div>
         </div>
     );
 
-    const StatusIcon = () => {
-        if (connectionStatus === 'testing') return <Loader2 size={18} className="animate-spin text-indigo-500" />;
-        if (connectionStatus === 'success') return <Wifi size={18} className="text-emerald-500" />;
-        if (connectionStatus === 'error') return <WifiOff size={18} className="text-rose-500" />;
-        return null;
-    };
-
     return (
-        <div className="pb-20 max-w-4xl mx-auto">
-            <div className="mb-10">
+        <div className="pb-20 max-w-4xl mx-auto px-4">
+            <div className="mb-10 pt-8">
                 <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
-                    System <span className="text-indigo-600">Settings</span>
+                    System <span className="text-indigo-600">Configuration</span>
                 </h1>
-                <p className="text-slate-500 font-medium">Configure your workspace and cloud synchronization.</p>
+                <p className="text-slate-500 font-medium">Control your team's cloud infrastructure and preferences.</p>
             </div>
 
-            {/* ====== CLOUD SYNC SECTION ====== */}
-            <SettingSection
-                title="Google Cloud Sync"
-                description="Connect your Google Sheet for team collaboration"
-                icon={Cloud}
-            >
+            <SettingSection title="Team Cloud Setup" description="Configure your real-time database" icon={Cloud}>
                 <div className="space-y-6">
-                    {/* URL Input */}
-                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 block mb-3">
-                            Apps Script URL
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                                type="url"
-                                value={scriptUrl}
-                                onChange={(e) => handleUrlChange(e.target.value)}
-                                className={cn(
-                                    "input flex-1 font-mono text-xs py-3",
-                                    urlError && "border-rose-400 dark:border-rose-500 focus:ring-rose-500/50"
-                                )}
-                                placeholder="https://script.google.com/macros/s/.../exec"
-                            />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* Local Mode */}
+                        <div className={cn(
+                            "p-5 rounded-2xl border flex flex-col justify-between gap-4 transition-all",
+                            cloudProvider === 'local'
+                                ? "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20"
+                                : "bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-800"
+                        )}>
+                            <div>
+                                <h4 className="font-black text-sm uppercase tracking-tight flex items-center gap-2">
+                                    {cloudProvider === 'local' ? <CheckCircle2 size={16} className="text-amber-500" /> : <Smartphone size={16} className="text-slate-400" />}
+                                    Local Only
+                                </h4>
+                                <p className="text-xs text-slate-500 mt-1">Data stays on this device. Fastest performance.</p>
+                            </div>
                             <button
-                                onClick={handleSaveScriptUrl}
-                                disabled={!!urlError || !scriptUrl.trim()}
+                                onClick={() => setCloudProvider('local')}
                                 className={cn(
-                                    "btn px-8 font-black",
-                                    urlError || !scriptUrl.trim()
-                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600"
-                                        : "btn-primary"
+                                    "btn h-10 text-xs font-black uppercase",
+                                    cloudProvider === 'local' ? "btn-secondary" : "btn-primary"
                                 )}
                             >
-                                Save & Test
+                                {cloudProvider === 'local' ? 'Active' : 'Select Local'}
                             </button>
                         </div>
 
-                        {/* URL validation error */}
-                        {urlError && (
-                            <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-start gap-2">
-                                <AlertCircle size={16} className="text-rose-500 mt-0.5 shrink-0" />
-                                <p className="text-xs font-bold text-rose-600 dark:text-rose-400 whitespace-pre-line">{urlError}</p>
+                        {/* Firebase Mode */}
+                        <div className={cn(
+                            "p-5 rounded-2xl border flex flex-col justify-between gap-4 transition-all",
+                            cloudProvider === 'firestore'
+                                ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
+                                : "bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-800"
+                        )}>
+                            <div>
+                                <h4 className="font-black text-sm uppercase tracking-tight flex items-center gap-2">
+                                    {cloudProvider === 'firestore' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Cloud size={16} className="text-slate-400" />}
+                                    Firebase Sync
+                                </h4>
+                                <p className="text-xs text-slate-500 mt-1">Direct sync with your Firebase project.</p>
                             </div>
-                        )}
-
-                        {/* Connection status */}
-                        {connectionStatus !== 'idle' && !urlError && (
-                            <div className={cn(
-                                "mt-4 p-4 rounded-xl border flex items-start gap-3",
-                                connectionStatus === 'testing' && "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/20",
-                                connectionStatus === 'success' && "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20",
-                                connectionStatus === 'error' && "bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20"
-                            )}>
-                                <StatusIcon />
-                                <div className="flex-1 min-w-0">
-                                    <p className={cn(
-                                        "text-[10px] font-black uppercase tracking-wider mb-1",
-                                        connectionStatus === 'testing' && "text-indigo-400",
-                                        connectionStatus === 'success' && "text-emerald-500",
-                                        connectionStatus === 'error' && "text-rose-400"
-                                    )}>
-                                        {connectionStatus === 'testing' ? 'Testing...' : connectionStatus === 'success' ? 'Connected' : 'Connection Failed'}
-                                    </p>
-                                    <p className={cn(
-                                        "text-xs font-bold whitespace-pre-line",
-                                        connectionStatus === 'testing' && "text-indigo-600 dark:text-indigo-400",
-                                        connectionStatus === 'success' && "text-emerald-700 dark:text-emerald-400",
-                                        connectionStatus === 'error' && "text-rose-700 dark:text-rose-400"
-                                    )}>
-                                        {statusMessage}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Test in Browser button - shown when network is blocked */}
-                        {connectionStatus === 'error' && scriptUrl.trim() && (
-                            <div className="mt-3 flex flex-col sm:flex-row gap-3">
-                                <button
-                                    onClick={openTestUrl}
-                                    className="btn bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-2 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 px-6 py-2.5 text-xs font-black gap-2 flex-1 transition-all"
-                                >
-                                    <ExternalLink size={16} />
-                                    Test URL in Browser
-                                </button>
-                                <button
-                                    onClick={handleTestConnection}
-                                    className="btn bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-2 border-indigo-200 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 px-6 py-2.5 text-xs font-black gap-2 flex-1 transition-all"
-                                >
-                                    <Activity size={16} />
-                                    Retry Connection
-                                </button>
-                            </div>
-                        )}
-
-                        {connectionStatus === 'error' && (
-                            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-2">💡 Troubleshooting</p>
-                                <ul className="text-[11px] text-amber-700 dark:text-amber-400 font-medium space-y-1 list-disc list-inside">
-                                    <li>Click "Test URL in Browser" — if you see JSON data, your script works fine</li>
-                                    <li><strong>Edge users</strong>: Go to Settings → Privacy → Tracking Prevention → set to <strong>"Basic"</strong></li>
-                                    <li><strong>Brave users</strong>: Click the lion icon → turn Shields OFF for this site</li>
-                                    <li>Disable any AdBlock extensions for localhost</li>
-                                    <li>Make sure script is deployed with "Who has access" = <strong>"Anyone"</strong></li>
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Sync Buttons */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <button
-                            onClick={handleSyncFromCloud}
-                            disabled={isSyncing || !scriptUrl.trim() || !!urlError}
-                            className={cn(
-                                "btn h-14 font-black text-sm gap-3 transition-all",
-                                isSyncing || !scriptUrl.trim() || urlError
-                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600"
-                                    : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 shadow-sm active:scale-95"
-                            )}
-                        >
-                            {isSyncing && syncAction === 'pull' ? (
-                                <Loader2 size={20} className="animate-spin text-indigo-500" />
-                            ) : (
-                                <ArrowDownToLine size={20} className="text-indigo-600" />
-                            )}
-                            {isSyncing && syncAction === 'pull' ? 'Pulling...' : 'Pull from Cloud'}
-                        </button>
-
-                        <button
-                            onClick={handleSyncToCloud}
-                            disabled={isSyncing || !scriptUrl.trim() || !!urlError}
-                            className={cn(
-                                "btn h-14 font-black text-sm gap-3 transition-all",
-                                isSyncing || !scriptUrl.trim() || urlError
-                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600"
-                                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 active:scale-95"
-                            )}
-                        >
-                            {isSyncing && syncAction === 'push' ? (
-                                <Loader2 size={20} className="animate-spin" />
-                            ) : (
-                                <ArrowUpFromLine size={20} />
-                            )}
-                            {isSyncing && syncAction === 'push' ? 'Pushing...' : 'Push to Cloud'}
-                        </button>
-                    </div>
-
-                    {/* Setup Guide */}
-                    <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Info size={14} className="text-indigo-600" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Quick Setup Guide</span>
+                            <button
+                                onClick={() => setCloudProvider('firestore')}
+                                className={cn(
+                                    "btn h-10 text-xs font-black uppercase",
+                                    cloudProvider === 'firestore' ? "btn-secondary" : "btn-primary"
+                                )}
+                            >
+                                {cloudProvider === 'firestore' ? 'Active' : 'Select Firebase'}
+                            </button>
                         </div>
-                        <ol className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400 font-medium space-y-1.5 list-decimal list-inside">
-                            <li>Open a Google Sheet → Extensions → Apps Script</li>
-                            <li>Paste the code from <code className="px-1.5 py-0.5 bg-white dark:bg-slate-800 rounded text-indigo-600 font-bold">GOOGLE_SHEETS_SETUP.js</code></li>
-                            <li>Click Deploy → New Deployment → Web App</li>
-                            <li>Set "Execute as" → <strong>Me</strong></li>
-                            <li>Set "Who has access" → <strong className="text-rose-600">Anyone</strong> (NOT "Anyone with Google Account")</li>
-                            <li>Copy the URL (must end with <code className="px-1.5 py-0.5 bg-white dark:bg-slate-800 rounded text-emerald-600 font-bold">/exec</code>)</li>
-                            <li>Paste it above and click Save & Test</li>
-                        </ol>
+
                     </div>
+
+                    {cloudProvider === 'firestore' && (
+                        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 block mb-3">Firebase Project Config</label>
+                            <textarea
+                                value={JSON.stringify(firebaseConfig, null, 2)}
+                                onChange={(e) => { try { setFirebaseConfig(JSON.parse(e.target.value)); } catch (e) { } }}
+                                className="input font-mono text-xs py-3 min-h-[150px] w-full"
+                                placeholder='{ "apiKey": "...", "projectId": "...", ... }'
+                            />
+                        </div>
+                    )}
                 </div>
             </SettingSection>
 
-            {/* ====== APPEARANCE ====== */}
-            <SettingSection
-                title="Visual Interface"
-                description="Theme and display preferences"
-                icon={Smartphone}
-            >
+            {userRole === 'admin' && (
+                <SettingSection title="User Management" description="Manage team roles and access" icon={UserCog}>
+                    <div className="space-y-4">
+                        {loadingUsers ? (
+                            <div className="flex justify-center p-4">
+                                <Loader2 className="animate-spin text-indigo-600" />
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {usersList.map((u) => (
+                                    <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
+                                                {(u.displayName || u.email || 'U').substring(0, 2)}
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-slate-900 dark:text-white">{u.displayName || 'Unnamed User'}</p>
+                                                <p className="text-[10px] text-slate-500 font-mono">{u.email}</p>
+                                            </div>
+                                        </div>
+                                        <select
+                                            value={u.role || 'member'}
+                                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                            className="text-[10px] font-black uppercase tracking-wider bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                                        >
+                                            <option value="admin">Admin</option>
+                                            <option value="event_manager">Manager</option>
+                                            <option value="member">Member</option>
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 flex items-start gap-3">
+                            <ShieldCheck size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                            <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">RBAC Protocol Active</h4>
+                                <p className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1">
+                                    Admins have full modification access. Managers can edit/delete events but cannot clear database. Members have read-only access.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </SettingSection>
+            )}
+
+            <SettingSection title="Visual Appearance" description="Customise your team dashboard" icon={Smartphone}>
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="font-bold text-slate-900 dark:text-white">Color Mode</p>
-                        <p className="text-sm text-slate-500">Switch between light and dark themes</p>
+                        <p className="font-bold text-slate-900 dark:text-white">Dark Mode Synergy</p>
+                        <p className="text-sm text-slate-500">Switch between light and high-contrast dark themes</p>
                     </div>
-                    <button
-                        onClick={toggleTheme}
-                        className="btn btn-secondary flex items-center gap-3 px-6"
-                    >
-                        {theme === 'light' ? (
-                            <>
-                                <Moon size={18} className="text-indigo-600" />
-                                <span className="font-bold">Dark Mode</span>
-                            </>
-                        ) : (
-                            <>
-                                <Sun size={18} className="text-amber-500" />
-                                <span className="font-bold">Light Mode</span>
-                            </>
-                        )}
+                    <button onClick={toggleTheme} className="btn btn-secondary flex items-center gap-3 px-6">
+                        {theme === 'light' ? <><Moon size={18} className="text-indigo-600" /><span className="font-bold">Dark Mode</span></> : <><Sun size={18} className="text-amber-500" /><span className="font-bold">Light Mode</span></>}
                     </button>
                 </div>
             </SettingSection>
 
-            {/* ====== NOTIFICATIONS ====== */}
-            <SettingSection
-                title="Alert System"
-                description="Deadline reminders and notifications"
-                icon={Bell}
-            >
-                <div className="space-y-8">
+            <SettingSection title="Notifications" description="Deadline alerts for the team" icon={Bell}>
+                <div className="space-y-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="font-bold text-slate-900 dark:text-white">Push Notifications</p>
-                            <p className="text-sm text-slate-500">Get alerts for upcoming deadlines</p>
+                            <p className="text-sm text-slate-500">Alerts for upcoming event registration deadlines</p>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={preferences.notificationsEnabled}
-                                onChange={(e) => handleNotificationToggle(e.target.checked)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-12 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer peer-checked:bg-indigo-600 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-6 shadow-inner" />
+                            <input type="checkbox" checked={preferences.notificationsEnabled} onChange={(e) => handleNotificationToggle(e.target.checked)} className="sr-only peer" />
+                            <div className="w-12 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer peer-checked:bg-indigo-600 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-6" />
                         </label>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-400">Deadline Reminder Days</label>
-                            <input
-                                type="text"
-                                value={preferences.deadlineReminderDays.join(', ')}
-                                onChange={(e) => {
-                                    const days = e.target.value.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
-                                    updatePreferences({ deadlineReminderDays: days });
-                                }}
-                                className="input font-bold"
-                                placeholder="7, 3, 1, 0"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-400">Event Lead Time (Days)</label>
-                            <input
-                                type="text"
-                                value={preferences.eventReminderDays.join(', ')}
-                                onChange={(e) => {
-                                    const days = e.target.value.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
-                                    updatePreferences({ eventReminderDays: days });
-                                }}
-                                className="input font-bold"
-                                placeholder="1"
-                            />
-                        </div>
-                    </div>
                 </div>
             </SettingSection>
 
-            {/* ====== DATA MANAGEMENT ====== */}
-            <SettingSection
-                title="Data Management"
-                description="Export, import, and maintenance tools"
-                icon={Database}
-            >
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-900/50">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-600 shadow-sm">
-                                <Download size={20} />
-                            </div>
-                            <div>
-                                <p className="font-bold text-slate-900 dark:text-white">Export CSV</p>
-                                <p className="text-xs text-slate-500">Download all events as a spreadsheet</p>
-                            </div>
-                        </div>
-                        <button onClick={handleExport} className="btn btn-secondary px-6">
-                            Export
-                        </button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/50">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-rose-600 shadow-sm">
-                                <Trash2 size={20} />
-                            </div>
-                            <div>
-                                <p className="font-bold text-rose-600">Delete All Data</p>
-                                <p className="text-xs text-slate-500">Permanently remove all local events</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleClearAll}
-                            className="bg-rose-100 hover:bg-rose-600 text-rose-600 hover:text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-                        >
-                            Delete All
-                        </button>
-                    </div>
+            <SettingSection title="Data & Security" description="Export and database maintenance" icon={Database}>
+                <div className="space-y-4">
+                    <button onClick={handleExport} className="w-full btn btn-secondary h-14 flex justify-between items-center px-6">
+                        <div className="flex items-center gap-4"><Download size={20} /><div className="text-left"><p className="font-bold">Backup Repository</p><p className="text-xs opacity-60">Export all events to CSV</p></div></div>
+                        <ChevronRight size={18} />
+                    </button>
+                    <button onClick={handleCleanup} className="w-full btn btn-secondary h-14 flex justify-between items-center px-6">
+                        <div className="flex items-center gap-4"><Database size={20} className="text-secondary" /><div className="text-left"><p className="font-bold">Cleanup Database</p><p className="text-xs opacity-60">Remove duplicates & garbage data</p></div></div>
+                        <ChevronRight size={18} />
+                    </button>
+                    <button onClick={handleClearAll} className="w-full h-14 flex justify-between items-center px-6 bg-rose-50 dark:bg-rose-500/10 text-rose-600 rounded-2xl border border-rose-100 dark:border-rose-500/20">
+                        <div className="flex items-center gap-4"><Trash2 size={20} /><div className="text-left"><p className="font-bold">Wipe Local Database</p><p className="text-xs opacity-60">Reset internal event storage</p></div></div>
+                        <ChevronRight size={18} />
+                    </button>
                 </div>
             </SettingSection>
 
-            {/* ====== PRIVACY ====== */}
-            <div className="glass-card p-6 sm:p-8 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent shadow-none">
-                <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400">
-                    <Shield size={32} />
-                </div>
-                <div className="flex-1">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Privacy First</h3>
-                    <p className="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed font-medium">
-                        All data is stored locally using <strong>IndexedDB</strong>.
-                        Cloud sync only happens when you explicitly click Pull or Push.
-                        No tracking, no analytics, no third-party services.
-                    </p>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 opacity-60">
-                        <span>Version 2.0</span>
-                        <span>Engine: Dexie.js</span>
-                        <span>Sync: Google Apps Script</span>
-                    </div>
+            <div className="glass-card p-8 flex flex-col md:flex-row gap-8 items-center border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent shadow-none">
+                <Shield size={32} className="text-slate-400" />
+                <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-lg font-bold mb-1">Team Privacy</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">Data is synchronized with your private Firebase project. Individual local databases provide offline access with sub-second performance.</p>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 // CSV Import Utility using PapaParse
 import Papa from 'papaparse';
-import { bulkImportEvents } from './db';
+import { db, addEvent, updateEvent, EventType } from './db';
 
 // Column mapping configurations
 const COLUMN_MAPPINGS = {
@@ -26,7 +26,8 @@ const COLUMN_MAPPINGS = {
     members: ['members'],
     noOfTeams: ['no of teams', 'no. of teams'],
     prizeWon: ['price won', 'prize won'],
-    eligibility: ['eligibility', 'eligible', 'criteria']
+    eligibility: ['eligibility', 'eligible', 'criteria'],
+    status: ['status', 'current status', 'state']
 };
 
 // Normalize column name
@@ -97,6 +98,33 @@ const parseContacts = (value) => {
     return String(value).split(/[,;]/).map(c => c.trim()).filter(Boolean);
 };
 
+// Normalize string to Title Case (e.g. "hackathon" -> "Hackathon", "paper presentation" -> "Paper Presentation")
+const toTitleCase = (str) => {
+    if (!str) return '';
+    return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+};
+
+// Try to map a string to a known EventType key/value
+const normalizeEventType = (value) => {
+    if (!value) return 'Other';
+    const lower = String(value).toLowerCase().trim();
+
+    // Direct matches with values
+    const exactMatch = Object.values(EventType).find(v => v.toLowerCase() === lower);
+    if (exactMatch) return exactMatch;
+
+    // Fuzzy matches
+    if (lower.includes('hack')) return EventType.HACKATHON;
+    if (lower.includes('paper')) return EventType.PAPER_PRESENTATION;
+    if (lower.includes('project') || lower.includes('expo')) return EventType.PROJECT_EXPO;
+    if (lower.includes('workshop')) return EventType.WORKSHOP;
+    if (lower.includes('contest') || lower.includes('competition')) return EventType.CONTEST;
+    if (lower.includes('seminar')) return EventType.SEMINAR;
+    if (lower.includes('conference')) return EventType.CONFERENCE;
+
+    return toTitleCase(value); // Fallback to capitalizing what we got
+};
+
 // Transform row to event object
 export const transformRow = (row, columnMapping) => {
     const event = {};
@@ -141,15 +169,23 @@ export const transformRow = (row, columnMapping) => {
                 event[field] = String(value).trim();
                 break;
 
+            case 'status':
+                event[field] = toTitleCase(String(value).trim());
+                break;
+
             default:
                 event[field] = String(value).trim();
         }
     }
 
-    // Set defaults for required fields
+    // Set defaults and Normalize
     if (!event.collegeName) event.collegeName = 'Unknown College';
+    else event.collegeName = toTitleCase(event.collegeName); // Nice formatting
+
     if (!event.eventName) event.eventName = 'Untitled Event';
-    if (!event.eventType) event.eventType = 'Other';
+
+    // intelligently normalize Event Type
+    event.eventType = normalizeEventType(event.eventType);
 
     // Fallback for dates if they were null
     const now = new Date();
@@ -209,12 +245,36 @@ export const importCSV = async (file, customMapping = null) => {
         // Transform rows to events
         const events = results.data.map(row => transformRow(row, columnMapping));
 
-        // Bulk import to database
-        const count = await bulkImportEvents(events);
+        // Process events one by one to ensure Cloud Sync
+        let added = 0;
+        let updated = 0;
+
+        // Get existing events for deduplication cache
+        const existingEvents = await db.events.toArray();
+        // Create a map for fast lookups: "eventname__collegename" -> id
+        const nameMap = new Map(existingEvents.map(e => [`${e.eventName}__${e.collegeName}`.toLowerCase(), e.id]));
+
+        for (const eventData of events) {
+            // Basic validation
+            if (!eventData.eventName || eventData.eventName.length < 2) continue;
+
+            const strictKey = `${eventData.eventName}__${eventData.collegeName}`.toLowerCase();
+
+            if (nameMap.has(strictKey)) {
+                // Update existing
+                const id = nameMap.get(strictKey);
+                await updateEvent(id, eventData);
+                updated++;
+            } else {
+                // Add new
+                await addEvent(eventData);
+                added++;
+            }
+        }
 
         return {
             success: true,
-            count,
+            count: { added, updated },
             events,
             mapping: columnMapping
         };

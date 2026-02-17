@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Globe, Zap, ArrowRight, Download, ExternalLink, Sparkles, Filter, Trophy, Users } from 'lucide-react';
+import { Search, Globe, Zap, ArrowRight, Download, ExternalLink, Sparkles, Filter, Trophy, Users, Terminal, Cpu, ShieldCheck } from 'lucide-react';
 import { cn } from '../utils';
 import { addEvent, EventType } from '../db';
 
@@ -9,49 +9,49 @@ const Discovery = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [results, setResults] = useState([]);
     const [selectedPlatform, setSelectedPlatform] = useState('all');
+    const [searchPulse, setSearchPulse] = useState(false);
 
     const platforms = [
-        { id: 'all', name: 'Omni Search', icon: Sparkles },
-        { id: 'google', name: 'Google', icon: Globe },
-        { id: 'unstop', name: 'Unstop', icon: Zap },
-        { id: 'devpost', name: 'Devpost', icon: ExternalLink },
-        { id: 'mlh', name: 'MLH', icon: Trophy },
-        { id: 'knowafest', name: 'Knowafest', icon: Search },
-        { id: 'meetup', name: 'Meetup', icon: Users },
+        { id: 'all', name: 'All Networks', icon: Sparkles, color: 'text-indigo-500' },
+        { id: 'google', name: 'Google', icon: Globe, color: 'text-blue-500' },
+        { id: 'unstop', name: 'Unstop', icon: Zap, color: 'text-amber-500' },
+        { id: 'devpost', name: 'Devpost', icon: ExternalLink, color: 'text-emerald-500' },
+        { id: 'mlh', name: 'MLH', icon: Trophy, color: 'text-rose-500' },
+        { id: 'meetup', name: 'Meetup', icon: Users, color: 'text-violet-500' },
     ];
 
-    // Initial Trending Results
-    React.useEffect(() => {
+    // Initial Trending Results Load
+    useEffect(() => {
         setResults([
             {
                 id: 'trend-1',
-                eventName: 'SpaceX Mars Mission Ideathon',
-                collegeName: 'Global Space Community',
-                eventType: EventType.PAPER_PRESENTATION,
-                registrationDeadline: '2024-06-20',
-                startDate: '2024-06-25',
-                endDate: '2024-06-26',
-                prizeAmount: 500000,
-                location: 'Online',
+                eventName: 'SpaceX Mars Habitat Hackathon',
+                collegeName: 'Galactic Engineering Consortium',
+                eventType: EventType.HACKATHON,
+                registrationDeadline: '2026-06-20',
+                startDate: '2026-06-25',
+                endDate: '2026-06-28',
+                prizeAmount: 10000000,
+                location: 'Earth / Mars Sync',
                 isOnline: true,
-                website: 'https://spacex.com/careers',
+                website: 'https://spacex.com/hack',
                 platform: 'Google Search',
-                description: 'Propose innovative solutions for Mars colonization and habitat building.'
+                description: 'Design the primary life support neural network for the first Mars colony.'
             },
             {
                 id: 'trend-2',
-                eventName: 'NVIDIA AI Graphics Challenge',
-                collegeName: 'NVIDIA Developer Program',
-                eventType: EventType.HACKATHON,
-                registrationDeadline: '2024-05-30',
-                startDate: '2024-06-01',
-                endDate: '2024-06-03',
-                prizeAmount: 200000,
-                location: 'Austin, TX',
-                isOnline: false,
-                website: 'https://nvidia.com/ai-challenge',
+                eventName: 'NVIDIA RTX Pathfinding Challenge',
+                collegeName: 'NVIDIA Research Lab',
+                eventType: EventType.CONTEST,
+                registrationDeadline: '2026-05-30',
+                startDate: '2026-06-01',
+                endDate: '2026-06-03',
+                prizeAmount: 2500000,
+                location: 'Austin HQ [Remote Option]',
+                isOnline: true,
+                website: 'https://nvidia.com/rtx-challenge',
                 platform: 'Unstop',
-                description: 'Build the next generation of AI-powered graphics engines.'
+                description: 'Optimize real-time raytracing kernels for minimal latency on high-bandwidth memory.'
             }
         ]);
     }, []);
@@ -61,173 +61,177 @@ const Discovery = () => {
         if (!searchQuery.trim()) return;
 
         setIsSearching(true);
-        // Simulate AI Researching across multiple browsers and platforms
+        setSearchPulse(true);
+
+        // Simulated AI Grid Search
         setTimeout(() => {
             const mockResults = [
                 {
                     id: 'ext-1',
-                    eventName: 'Global Generative AI Hackathon',
+                    eventName: 'Global Generative AI Hackathon v4',
                     collegeName: 'Devpost Community',
                     eventType: EventType.HACKATHON,
-                    registrationDeadline: '2024-05-25',
-                    startDate: '2024-06-05',
-                    endDate: '2024-06-07',
-                    prizeAmount: 250000,
-                    location: 'Online',
+                    registrationDeadline: '2026-05-25',
+                    startDate: '2026-06-05',
+                    endDate: '2026-06-07',
+                    prizeAmount: 500000,
+                    location: 'Cloud Only',
                     isOnline: true,
                     website: 'https://devpost.com/hackathons/global-ai',
                     platform: 'Devpost',
-                    description: 'The premier global hackathon for Generative AI applications using LLMs.'
+                    description: 'Build robust LLM agents that can operate across fragmented data silos with zero-shot learning.'
                 },
                 {
                     id: 'ext-2',
-                    eventName: 'Smart India Hackathon 2024',
+                    eventName: 'Smart India Hackathon 2026',
                     collegeName: 'Ministry of Education',
                     eventType: EventType.HACKATHON,
-                    registrationDeadline: '2024-07-15',
-                    startDate: '2024-08-20',
-                    endDate: '2024-08-22',
-                    prizeAmount: 1000000,
-                    location: 'Nodal Centers',
+                    registrationDeadline: '2026-07-15',
+                    startDate: '2026-08-20',
+                    endDate: '2026-08-25',
+                    prizeAmount: 1500000,
+                    location: 'Nodal Command Centers',
                     isOnline: false,
                     website: 'https://sih.gov.in',
                     platform: 'Google Search',
-                    description: 'A nationwide initiative to provide students a platform to solve some of the pressing problems we face in our daily lives.'
+                    description: 'Solving the nation\'s hardest engineering problems through collaborative student innovation.'
                 },
                 {
                     id: 'ext-3',
-                    eventName: 'Major League Hacking: Summer 24',
-                    collegeName: 'MLH Foundation',
+                    eventName: 'Major League Hacking: Winter 26',
+                    collegeName: 'MLH Operational Command',
                     eventType: EventType.CONTEST,
-                    registrationDeadline: '2024-05-10',
-                    startDate: '2024-05-12',
-                    endDate: '2024-05-14',
-                    prizeAmount: 150000,
-                    location: 'Virtual',
+                    registrationDeadline: '2026-11-10',
+                    startDate: '2026-11-12',
+                    endDate: '2026-11-14',
+                    prizeAmount: 200000,
+                    location: 'Virtual Grid',
                     isOnline: true,
-                    website: 'https://mlh.io/seasons/2024/events',
+                    website: 'https://mlh.io',
                     platform: 'MLH',
-                    description: 'Compete in world-class hackathons and level up your engineering skills.'
+                    description: 'Compete, learn, and level up your operational efficiency in the world\'s largest hacker circuit.'
                 },
                 {
                     id: 'ext-4',
-                    eventName: 'Silicon Valley Project Expo',
-                    collegeName: 'Stanford University',
+                    eventName: 'Stanford AI Project Expo',
+                    collegeName: 'Stanford Center for AI',
                     eventType: EventType.PROJECT_EXPO,
-                    registrationDeadline: '2024-06-20',
-                    startDate: '2024-07-01',
-                    endDate: '2024-07-03',
-                    prizeAmount: 500000,
-                    location: 'Stanford Campus',
-                    isOnline: false,
+                    registrationDeadline: '2026-06-20',
+                    startDate: '2026-07-01',
+                    endDate: '2026-07-03',
+                    prizeAmount: 1000000,
+                    location: 'Palo Alto [Hybrid]',
+                    isOnline: true,
                     website: 'https://stanford.edu/expo',
                     platform: 'Bing Search',
-                    description: 'The most prestigious project exhibition in the heart of Silicon Valley.'
-                },
-                {
-                    id: 'ext-5',
-                    eventName: 'React India Workshop',
-                    collegeName: 'React Community',
-                    eventType: EventType.WORKSHOP,
-                    registrationDeadline: '2024-05-01',
-                    startDate: '2024-05-05',
-                    endDate: '2024-05-05',
-                    prizeAmount: 0,
-                    location: 'Goa',
-                    isOnline: false,
-                    website: 'https://reactindia.io',
-                    platform: 'DuckDuckGo',
-                    description: 'Advanced React patterns and performance optimization workshop.'
+                    description: 'Exhibit your frontier research and practical implementations to top-tier VC and academic heads.'
                 }
             ];
 
-            setResults(mockResults.filter(r =>
-                (selectedPlatform === 'all' || r.platform.toLowerCase().includes(selectedPlatform)) &&
+            const filtered = mockResults.filter(r =>
+                (selectedPlatform === 'all' || r.platform.toLowerCase().includes(selectedPlatform.toLowerCase())) &&
                 (r.eventName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     r.collegeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    r.platform.toLowerCase().includes(searchQuery.toLowerCase()))
-            ));
+                    r.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+
+            setResults(filtered);
             setIsSearching(false);
-        }, 2000);
+            setSearchPulse(false);
+        }, 2200);
     };
 
     const handleImport = async (event) => {
         try {
             const { id, platform, ...cleanEvent } = event;
             await addEvent(cleanEvent);
-            alert(`Succesfully imported ${event.eventName} to your collection!`);
+            alert(`EVENT IMPORTED: ${event.eventName} added to your list.`);
         } catch (error) {
-            console.error('Import error:', error);
+            console.error('Injection error:', error);
         }
     };
 
     return (
-        <div className="pb-20">
-            <div className="mb-10 text-center max-w-2xl mx-auto">
+        <div className="pb-32 pt-12">
+            {/* Header / Intro */}
+            <div className="mb-16 text-center max-w-4xl mx-auto px-4">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest mb-4 border border-indigo-100 dark:border-indigo-900/50 shadow-sm"
+                    className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-slate-900 text-white text-[11px] font-black uppercase tracking-[0.4em] mb-8 border border-white/10 shadow-2xl"
                 >
-                    <Sparkles size={14} />
-                    Discovery Engine
+                    <Cpu size={14} className="text-indigo-400" />
+                    AI Event Search Engine
                 </motion.div>
-                <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
-                    Find Your Next <span className="text-indigo-600">Opportunity</span>
+                <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 leading-none">
+                    Discover <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Events</span> Online
                 </h1>
-                <p className="text-slate-500 font-medium">
-                    Our AI scans across major platforms to find the best hackathons, expos, and presentations for you.
+                <p className="text-lg text-slate-500 dark:text-slate-400 font-bold max-w-2xl mx-auto">
+                    AI-powered multi-platform search. Find hackathons, contests, and workshops across the web in real-time.
                 </p>
             </div>
 
-            {/* AI Search Bar */}
-            <div className="max-w-3xl mx-auto mb-12">
-                <form onSubmit={handleAIsignSearch} className="relative group">
-                    <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                        <Search size={22} strokeWidth={2.5} />
+            {/* Tactical Search Interface */}
+            <div className="max-w-4xl mx-auto mb-20 px-4">
+                <div className="relative group">
+                    <div className={cn(
+                        "absolute -inset-1 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-[2.5rem] blur opacity-20 group-focus-within:opacity-50 transition-opacity duration-1000",
+                        isSearching && "animate-pulse opacity-40"
+                    )} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+                        <form onSubmit={handleAIsignSearch} className="flex flex-col md:flex-row items-center">
+                            <div className="flex-1 w-full relative">
+                                <div className="absolute inset-y-0 left-8 flex items-center pointer-events-none text-slate-400">
+                                    <Terminal size={22} strokeWidth={3} />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Enter search parameters: 'Hackathons in India', 'AI Project Expos'..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-20 pr-8 py-8 bg-transparent focus:outline-none text-xl font-bold tracking-tight text-slate-900 dark:text-white placeholder-slate-300 dark:placeholder-slate-700"
+                                />
+                            </div>
+                            <div className="p-4 w-full md:w-auto">
+                                <button
+                                    type="submit"
+                                    disabled={isSearching}
+                                    className="w-full md:w-auto px-10 h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                                >
+                                    {isSearching ? (
+                                        <>
+                                            <div className="w-5 h-5 border-4 border-slate-400 border-t-indigo-500 rounded-full animate-spin" />
+                                            Scanning...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Search Events
+                                            <ArrowRight size={18} strokeWidth={3} />
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                    <input
-                        type="text"
-                        placeholder="Search anything: 'Hackathons in Bangalore', 'AI Project Expos'..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-14 pr-32 py-5 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl shadow-indigo-500/5 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500/50 text-lg font-medium transition-all"
-                    />
-                    <button
-                        type="submit"
-                        disabled={isSearching}
-                        className="absolute right-3 top-2.5 bottom-2.5 px-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {isSearching ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Analyzing...
-                            </>
-                        ) : (
-                            <>
-                                Discovery
-                                <ArrowRight size={18} />
-                            </>
-                        )}
-                    </button>
-                </form>
+                </div>
 
-                {/* Platform Filters */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+                {/* Filter Grid */}
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-10">
                     {platforms.map((p) => {
                         const Icon = p.icon;
+                        const isActive = selectedPlatform === p.id;
                         return (
                             <button
                                 key={p.id}
                                 onClick={() => setSelectedPlatform(p.id)}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border",
-                                    selectedPlatform === p.id
-                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30 scale-105"
-                                        : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300"
+                                    "flex items-center gap-3 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2",
+                                    isActive
+                                        ? "bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-900/20 -translate-y-1"
+                                        : "bg-white dark:bg-slate-800 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-indigo-300"
                                 )}
                             >
-                                <Icon size={16} />
+                                <Icon size={14} className={cn(!isActive && p.color)} strokeWidth={3} />
                                 {p.name}
                             </button>
                         );
@@ -235,75 +239,97 @@ const Discovery = () => {
                 </div>
             </div>
 
-            {/* Results Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <AnimatePresence mode="popLayout">
-                    {results.length > 0 ? (
-                        results.map((event, idx) => (
-                            <motion.div
-                                key={event.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="glass-card flex flex-col h-full group border-0 ring-1 ring-slate-100 dark:ring-slate-800 hover:ring-indigo-500/50"
-                            >
-                                <div className="p-6 flex-1">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={cn(
-                                            "flex items-center gap-2 px-2 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border",
-                                            event.platform.includes('Search') || ['Google', 'Bing', 'DuckDuckGo'].includes(event.platform)
-                                                ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/20"
-                                                : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
-                                        )}>
-                                            {event.platform.includes('Search') || ['Google', 'Bing', 'DuckDuckGo'].includes(event.platform) ? <Globe size={10} /> : <Zap size={10} />}
-                                            {event.platform} AI Result
-                                        </div>
-                                        <a href={event.website} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-indigo-600 transition-colors">
-                                            <ExternalLink size={18} />
-                                        </a>
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 transition-colors">{event.eventName}</h3>
-                                    <p className="text-sm font-semibold text-slate-500 mb-4">{event.collegeName}</p>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 mb-6 leading-relaxed">
-                                        {event.description}
-                                    </p>
+            {/* Data Feed Grid */}
+            <div className="max-w-7xl mx-auto px-4 lg:px-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    <AnimatePresence mode="popLayout">
+                        {results.length > 0 ? (
+                            results.map((event, idx) => (
+                                <motion.div
+                                    key={event.id}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: -30 }}
+                                    transition={{ delay: idx * 0.1, type: 'spring', damping: 20 }}
+                                    className="relative group h-full"
+                                >
+                                    {/* Backdrop FX */}
+                                    <div className="absolute inset-0 bg-indigo-600 rounded-[3rem] blur-[40px] opacity-0 group-hover:opacity-10 transition-opacity" />
 
-                                    <div className="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                                        <div>
-                                            <span className="block mb-1">Type</span>
-                                            <span className="text-slate-900 dark:text-slate-200">{event.eventType}</span>
+                                    <div className="relative h-full bg-white dark:bg-slate-900 rounded-[3rem] p-10 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-2xl transition-all flex flex-col overflow-hidden">
+                                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-slate-50 dark:bg-slate-800/50 rounded-full group-hover:scale-125 transition-transform duration-700" />
+
+                                        <div className="flex justify-between items-start mb-10 relative z-10">
+                                            <div className={cn(
+                                                "flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase border-2",
+                                                event.platform.toLowerCase().includes('search')
+                                                    ? "bg-blue-50 text-blue-600 border-blue-100"
+                                                    : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                            )}>
+                                                {event.platform.toLowerCase().includes('search') ? <Globe size={11} /> : <Zap size={11} />}
+                                                Found on {event.platform}
+                                            </div>
+                                            <a href={event.website} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors">
+                                                <ExternalLink size={18} />
+                                            </a>
                                         </div>
-                                        <div>
-                                            <span className="block mb-1">Deadline</span>
-                                            <span className="text-rose-600">{event.registrationDeadline}</span>
+
+                                        <div className="flex-1 relative z-10">
+                                            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight group-hover:text-indigo-600 transition-colors leading-[1.1]">{event.eventName}</h3>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">{event.collegeName}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3 mb-8 italic">
+                                                "{event.description}"
+                                            </p>
+
+                                            <div className="grid grid-cols-2 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                                                <div>
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Category</span>
+                                                    <span className="text-xs font-black text-slate-900 dark:text-slate-200">{event.eventType}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Deadline</span>
+                                                    <span className="text-xs font-black text-rose-600">{event.registrationDeadline}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-10 relative z-10">
+                                            <button
+                                                onClick={() => handleImport(event)}
+                                                className="w-full flex items-center justify-center gap-3 py-5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-slate-500/10"
+                                            >
+                                                <Download size={18} strokeWidth={3} />
+                                                Add to My List
+                                            </button>
                                         </div>
                                     </div>
+                                </motion.div>
+                            ))
+                        ) : isSearching ? (
+                            [1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="bg-slate-100 dark:bg-slate-800/50 rounded-[3rem] h-[450px] animate-pulse border-2 border-dashed border-slate-200 dark:border-slate-800" />
+                            ))
+                        ) : searchQuery && (
+                            <div className="col-span-full py-32 text-center">
+                                <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
+                                    <ShieldCheck size={48} className="text-slate-300" />
                                 </div>
-                                <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 rounded-b-2xl">
-                                    <button
-                                        onClick={() => handleImport(event)}
-                                        className="w-full flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-900 text-indigo-600 border border-indigo-100 dark:border-indigo-900/50 rounded-xl font-bold hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
-                                    >
-                                        <Download size={18} />
-                                        Import to My Events
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : isSearching ? (
-                        [1, 2, 3].map(i => (
-                            <div key={i} className="glass-card h-80 animate-pulse bg-slate-100 dark:bg-slate-800 border-0" />
-                        ))
-                    ) : searchQuery && (
-                        <div className="col-span-full py-20 text-center">
-                            <Zap size={48} className="mx-auto text-slate-300 mb-4" />
-                            <p className="text-slate-500 font-bold text-lg">No New Opportunities Found</p>
-                            <p className="text-slate-400 text-sm">Try broadening your search query</p>
-                        </div>
-                    )}
-                </AnimatePresence>
+                                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Search Complete</h3>
+                                <p className="text-slate-500 font-bold">No events found matching your search at the moment.</p>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+
+            {/* Intelligence Footer */}
+            <div className="mt-32 max-w-4xl mx-auto px-4 text-center">
+                <div className="flex items-center justify-center gap-10 opacity-30">
+                    <img src="https://unstop.com/favicon.ico" alt="U" className="w-8 grayscale invert brightness-0" />
+                    <img src="https://devpost.com/favicon.ico" alt="D" className="w-8 grayscale invert brightness-0" />
+                    <img src="https://mlh.io/favicon.ico" alt="M" className="w-8 grayscale invert brightness-0" />
+                </div>
             </div>
         </div>
     );

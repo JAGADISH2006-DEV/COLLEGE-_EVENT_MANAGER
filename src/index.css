@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .pt-safe {
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
 @layer base {
     :root {
         --safe-area-top: env(safe-area-inset-top, 0px);
@@ -28,17 +38,14 @@
 
     body {
         @apply font-sans antialiased bg-slate-50 text-slate-900 dark:bg-[#0f172a] dark:text-gray-100;
-        /* Enable hardware acceleration */
-        transform: translateZ(0);
-        -webkit-font-smoothing: antialiased;
+        /* Smooth font rendering */
         -moz-osx-font-smoothing: grayscale;
         /* Better touch scrolling on iOS */
         -webkit-overflow-scrolling: touch;
         min-height: 100vh;
         min-height: -webkit-fill-available;
         padding-top: var(--safe-area-top);
-        padding-bottom: calc(var(--safe-area-bottom) + 4rem);
-        /* Space for bottom nav */
+        padding-bottom: var(--safe-area-bottom);
     }
 
     /* Optimize button and interactive elements for touch */
@@ -155,6 +162,27 @@
     .priority-low {
         @apply bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/20;
     }
+
+    /* Premium Input Subsystem */
+    .input-premium {
+        @apply w-full px-6 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-slate-900 dark:text-white font-bold tracking-tight focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-300 dark:placeholder-slate-700 transition-all duration-300;
+    }
+
+    .label-premium {
+        @apply block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 ml-4;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        @apply bg-transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
+    }
 }
 
 /* Custom Scrollbar */
@@ -169,6 +197,15 @@
 
 ::-webkit-scrollbar-thumb {
     @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 /* Animations */
@@ -203,31 +240,7 @@
     transition: opacity 300ms, transform 300ms;
 }
 
-/* RedDot Watermark System */
-.reddot-watermark {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    pointer-events: none;
-    z-index: 9999;
-    font-family: inherit;
-    font-weight: 900;
-    font-size: 0.75rem;
-    letter-spacing: 0.25em;
-    opacity: 0.6;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    color: #ef4444;
-    text-transform: uppercase;
-    background: rgba(15, 23, 42, 0.7);
-    backdrop-filter: blur(12px);
-    padding: 0.6rem 1.2rem;
-    border-radius: 99px;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
-}
+
 
 .reddot-dot {
     width: 0.65rem;

@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to get the role of the user making the request
+    function getUserRole() {
+      // Check if user document exists before accessing data
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "member"; // Default fallback if needed
+    }
+
+    match /events/{eventId} {
+      // Anyone logged in can view events
+      allow read: if request.auth != null;
+
+      // Only Admins and Event Managers can modify events
+      allow create, update, delete: 
+        if getUserRole() == "admin" || getUserRole() == "event_manager";
+    }
+
+    match /users/{userId} {
+      // Anyone logged in can see the list of users (needed for Admin panel)
+      allow read: if request.auth != null;
+
+      // START FIX: Allow users to create their own profile during registration
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admins to update roles (e.g. promoting member to manager)
+      allow update: if getUserRole() == "admin";
+      // END FIX
+    }
+
+  }
+}

@@ -1,12 +1,27 @@
-// IndexedDB Database Schema using Dexie.js
-import Dexie from 'dexie';
+/**
+ * 💾 INDEXED-DB CORE DATABASE LAYER
+ * 
+ * This file powers the "Offline-First" capability of the app.
+ * It uses Dexie.js to manage a local database in the user's browser.
+ * 
+ * CRITICAL FLOW:
+ * Local Action -> Update IndexedDB -> Sync to Firebase
+ */
 
+import Dexie from 'dexie';
+import { useAppStore } from './store';
+import { saveEventToFirestore, deleteEventFromFirestore } from './services/firebase';
+
+/**
+ * Define the Database Schema
+ */
 export class EventDatabase extends Dexie {
     constructor() {
         super('CollegeEventManager');
 
+        // ++id means auto-incrementing primary key
         this.version(1).stores({
-            events: '++id, collegeName, eventName, eventType, registrationDeadline, startDate, endDate, status, priorityScore, createdAt, contact1, contact2, leader, prizeWon',
+            events: '++id, collegeName, eventName, eventType, registrationDeadline, startDate, endDate, status, priorityScore, createdAt, contact1, contact2, leader, prizeWon, isShortlisted, serverId',
             colleges: '++id, name, location, pastEvents',
             notes: '++id, eventId, content, createdAt',
             settings: 'key, value'
@@ -16,7 +31,9 @@ export class EventDatabase extends Dexie {
 
 export const db = new EventDatabase();
 
-// Event Model
+/**
+ * Event Constants
+ */
 export const EventType = {
     HACKATHON: 'Hackathon',
     PAPER_PRESENTATION: 'Paper Presentation',
@@ -30,6 +47,7 @@ export const EventType = {
 
 export const EventStatus = {
     OPEN: 'Open',
+    REGISTERED: 'Registered',
     DEADLINE_TODAY: 'Deadline Today',
     CLOSED: 'Closed',
     COMPLETED: 'Completed',
@@ -38,7 +56,9 @@ export const EventStatus = {
     BLOCKED: 'Blocked'
 };
 
-// Event Interface (TypeScript-style documentation)
+/**
+ * Creates a standard event object with defaults.
+ */
 export const createEvent = ({
     collegeName,
     eventName,
@@ -59,6 +79,7 @@ export const createEvent = ({
     website = '',
     description = '',
     teamSize = 1,
+    teamName = '',
     leader = '',
     members = '',
     noOfTeams = '',
@@ -67,11 +88,18 @@ export const createEvent = ({
     status = null,
     priorityScore = null,
     customReminders = [],
-    tags = []
+    tags = [],
+    isShortlisted = false,
+    createdAt = null,
+    updatedAt = null,
+    serverId = null,
+    id = null
 }) => {
     const now = new Date();
 
-    return {
+    const event = {
+        id,
+        serverId: serverId || crypto.randomUUID(), // Guarantee a unique Server ID
         collegeName,
         eventName,
         eventType,
@@ -91,6 +119,7 @@ export const createEvent = ({
         website,
         description,
         teamSize,
+        teamName,
         leader,
         members,
         noOfTeams,
@@ -100,49 +129,46 @@ export const createEvent = ({
         priorityScore: priorityScore || 0,
         customReminders,
         tags,
-        createdAt: now,
-        updatedAt: now
+        isShortlisted: !!isShortlisted,
+        createdAt: createdAt ? new Date(createdAt) : now,
+        updatedAt: updatedAt ? new Date(updatedAt) : now
     };
+
+    // Remove id if it's null so Dexie can auto-increment if needed
+    if (event.id === null) delete event.id;
+
+    return event;
 };
 
-// Auto Status Calculation Engine
+/**
+ * ENGINE: Automatically decides the status based on current date.
+ */
 export const calculateStatus = (registrationDeadline, startDate, endDate) => {
     const now = new Date();
     const deadline = new Date(registrationDeadline);
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Check for invalid dates
     if (isNaN(deadline.getTime()) || isNaN(start.getTime()) || isNaN(end.getTime())) {
         return EventStatus.OPEN;
     }
 
-    // Reset time to compare dates only
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
     const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
-    if (today > endDateOnly) {
-        return EventStatus.COMPLETED;
-    }
-
-    if (today >= startDateOnly && today <= endDateOnly) {
-        return EventStatus.ATTENDED;
-    }
-
-    if (today > deadlineDate) {
-        return EventStatus.CLOSED;
-    }
-
-    if (today.getTime() === deadlineDate.getTime()) {
-        return EventStatus.DEADLINE_TODAY;
-    }
+    if (today > endDateOnly) return EventStatus.COMPLETED;
+    if (today >= startDateOnly && today <= endDateOnly) return EventStatus.ATTENDED;
+    if (today > deadlineDate) return EventStatus.CLOSED;
+    if (today.getTime() === deadlineDate.getTime()) return EventStatus.DEADLINE_TODAY;
 
     return EventStatus.OPEN;
 };
 
-// Priority Scoring Engine (0-100)
+/**
+ * ENGINE: Assigns a score (0-100) based on how "lucrative" the event is.
+ */
 export const calculatePriorityScore = (event) => {
     let score = 0;
     const now = new Date();
@@ -150,20 +176,18 @@ export const calculatePriorityScore = (event) => {
 
     if (isNaN(deadline.getTime())) return 0;
 
-    // 1. Prize to Fee Ratio (0-30 points)
+    // 1. Prize to Fee Ratio (Valuable events score higher)
     const prize = parseFloat(event.prizeAmount) || 0;
     const fee = parseFloat(event.registrationFee) || 0;
-
-    if (fee === 0 && prize > 0) {
-        score += 30;
-    } else if (fee > 0) {
+    if (fee === 0 && prize > 0) score += 30;
+    else if (fee > 0) {
         const ratio = prize / fee;
         if (ratio >= 10) score += 30;
         else if (ratio >= 5) score += 20;
         else if (ratio >= 2) score += 10;
     }
 
-    // 2. Event Type Priority (0-20 points)
+    // 2. Event Type Weights
     const typeScores = {
         [EventType.HACKATHON]: 20,
         [EventType.PROJECT_EXPO]: 18,
@@ -176,238 +200,207 @@ export const calculatePriorityScore = (event) => {
     };
     score += typeScores[event.eventType] || 5;
 
-    // 3. Days Remaining (0-25 points)
+    // 3. Urgency (closer deadlines get higher priority naturally)
     const daysRemaining = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
     if (daysRemaining <= 2) score += 25;
     else if (daysRemaining <= 7) score += 20;
-    else if (daysRemaining <= 14) score += 15;
-    else if (daysRemaining <= 30) score += 10;
-    else score += 5;
-
-    // 4. Online vs Offline (0-15 points)
-    if (event.isOnline) {
-        score += 15; // Online events are easier to attend
-    } else if (event.accommodation) {
-        score += 10; // Offline with accommodation
-    } else {
-        score += 5; // Offline without accommodation
-    }
-
-    // 5. Prize Amount Bonus (0-10 points)
-    if (prize >= 100000) score += 10;
-    else if (prize >= 50000) score += 7;
-    else if (prize >= 10000) score += 5;
-    else if (prize > 0) score += 3;
 
     return Math.min(100, Math.max(0, score));
 };
 
-// Database Operations
+/**
+ * DATA OP: Create a new event.
+ * Saves locally first, then attempts to sync with Firebase.
+ */
 export const addEvent = async (eventData) => {
     const event = createEvent(eventData);
     event.priorityScore = calculatePriorityScore(event);
+
+    // Save to Local DB
     const id = await db.events.add(event);
-    return { ...event, id };
-};
+    const result = { ...event, id };
 
-export const updateEvent = async (id, updates) => {
-    const updated = {
-        ...updates,
-        updatedAt: new Date()
-    };
-
-    if (updates.registrationDeadline || updates.startDate || updates.endDate || updates.status ||
-        updates.prizeAmount || updates.registrationFee || updates.isOnline || updates.accommodation) {
-        const event = await db.events.get(id);
-        const mergedEvent = { ...event, ...updates };
-
-        // Only auto-calculate status if it's not being manually set to a terminal status
-        const isTerminalStatus = (s) => s === EventStatus.WON || s === EventStatus.BLOCKED;
-
-        if (updates.status) {
-            updated.status = updates.status;
-        } else if (!isTerminalStatus(event.status)) {
-            updated.status = calculateStatus(
-                mergedEvent.registrationDeadline,
-                mergedEvent.startDate,
-                mergedEvent.endDate
-            );
+    // Sync to Cloud
+    const state = useAppStore.getState();
+    if (state.cloudProvider === 'firestore') {
+        try {
+            await saveEventToFirestore(result);
+        } catch (e) {
+            console.error('[Sync Fail] Local saved but cloud sync failed:', e);
         }
-
-        updated.priorityScore = calculatePriorityScore(mergedEvent);
     }
 
-    await db.events.update(id, updated);
-    return db.events.get(id);
-};
-
-export const deleteEvent = async (id) => {
-    await db.events.delete(id);
-};
-
-export const getAllEvents = async () => {
-    return db.events.toArray();
-};
-
-export const getEventsByStatus = async (status) => {
-    return db.events.where('status').equals(status).toArray();
-};
-
-export const getUpcomingEvents = async () => {
-    const now = new Date();
-    return db.events
-        .where('startDate')
-        .above(now)
-        .sortBy('priorityScore')
-        .then(events => events.reverse());
-};
-
-export const searchEvents = async (query) => {
-    const lowerQuery = query.toLowerCase();
-    const allEvents = await db.events.toArray();
-
-    return allEvents.filter(event =>
-        event.eventName.toLowerCase().includes(lowerQuery) ||
-        event.collegeName.toLowerCase().includes(lowerQuery) ||
-        event.eventType.toLowerCase().includes(lowerQuery) ||
-        event.location.toLowerCase().includes(lowerQuery)
-    );
+    return result;
 };
 
 /**
- * Intelligent Bulk Import
- * Prevents duplication by checking for existing events with same name + college.
- * Also deduplicates within the incoming batch itself.
+ * DATA OP: Update an existing event.
  */
-export const bulkImportEvents = async (eventsArray) => {
-    if (!eventsArray || eventsArray.length === 0) {
-        return { added: 0, updated: 0 };
+const MANUAL_STATUSES = [EventStatus.WON, EventStatus.ATTENDED, EventStatus.BLOCKED, EventStatus.REGISTERED];
+
+export const updateEvent = async (id, updates) => {
+    const updated = { ...updates, updatedAt: new Date() };
+
+    // If dates or financial info changed, recalculate status and score
+    if (updates.registrationDeadline || updates.startDate || updates.endDate ||
+        updates.prizeAmount || updates.registrationFee) {
+        const event = await db.events.get(id);
+        const merged = { ...event, ...updates };
+
+        // Only auto-update status if it's NOT a manual status (Won, Attended, Blocked)
+        // OR if the user is explicitly updating the status in this very call (updates.status would be present)
+        if (!updates.status && !MANUAL_STATUSES.includes(event.status)) {
+            updated.status = calculateStatus(merged.registrationDeadline, merged.startDate, merged.endDate);
+        }
+
+        updated.priorityScore = calculatePriorityScore(merged);
     }
 
+    await db.events.update(id, updated);
+    const finalEvent = await db.events.get(id);
+
+    // Sync to Cloud
+    const state = useAppStore.getState();
+    if (state.cloudProvider === 'firestore') {
+        try {
+            await saveEventToFirestore(finalEvent);
+        } catch (e) {
+            console.error('[Sync Fail] Update failed to sync:', e);
+        }
+    }
+
+    return finalEvent;
+};
+
+/**
+ * DATA OP: Remove an event.
+ */
+export const deleteEvent = async (id) => {
+    // Get the event first so we have the serverId for cloud deletion
+    const event = await db.events.get(id);
+    if (!event) return; // Already deleted?
+
+    await db.events.delete(id);
+
+    // Sync to Cloud
+    const state = useAppStore.getState();
+    if (state.cloudProvider === 'firestore' && event.serverId) {
+        try {
+            await deleteEventFromFirestore(event.serverId);
+        } catch (e) {
+            console.error('[Sync Fail] Delete failed on cloud:', e);
+        }
+    }
+};
+
+/**
+ * BULK OP: Used for initial sync from Firebase to Local DB.
+ * SET overwrite to true if you want local to EXACTLY match cloud (Deletes local items not in cloud)
+ */
+export const bulkImportEvents = async (eventsArray, overwrite = false) => {
+    if (!eventsArray) return { added: 0, updated: 0 };
+
     return await db.transaction('rw', db.events, async () => {
+        let added = 0;
+        let updated = 0;
         const existingEvents = await db.events.toArray();
-        const existingMap = new Map();
 
-        // Safe key generator — handles missing/undefined fields
-        const getEventKey = (e) => {
-            const name = (e.eventName || '').toString().toLowerCase().trim();
-            const college = (e.collegeName || '').toString().toLowerCase().trim();
-            if (!name && !college) return null; // Skip events with no identifiers
-            return `${name}__${college}`;
-        };
-
-        // Build lookup of existing events
+        // Map existing events by Server ID for precise matching
+        const serverIdMap = new Map();
         existingEvents.forEach(e => {
-            const key = getEventKey(e);
-            if (key) existingMap.set(key, e.id);
+            if (e.serverId) serverIdMap.set(e.serverId, e.id);
         });
 
-        let addedCount = 0;
-        let updatedCount = 0;
-        const seenInBatch = new Set(); // Track keys in current batch to avoid batch duplicates
+        // Also define legacy map (Name + College) for backward compatibility
+        const nameMap = new Map(existingEvents.map(e => [`${e.eventName}__${e.collegeName}`.toLowerCase(), e.id]));
+        const currentServerIds = new Set(); // Track IDs in this update batch
 
-        for (const eventData of eventsArray) {
-            // Skip events with no name AND no college
-            if (!eventData.eventName && !eventData.collegeName) continue;
+        for (const data of eventsArray) {
+            // Validate data integrity
+            if (!data.eventName || data.eventName.length < 2) continue;
 
-            const key = getEventKey(eventData);
-            if (!key) continue;
+            const processed = createEvent(data);
+            // If incoming data has a serverId (which it should from Firestore), use it.
+            // If createEvent generated a NEW one, we might risk duplication if we don't match correctly.
+            // However, subscribeToEvents sets serverId = doc.id, so data.serverId IS set.
 
-            // Skip duplicates within the same batch
-            if (seenInBatch.has(key)) continue;
-            seenInBatch.add(key);
+            const remoteSid = processed.serverId;
+            currentServerIds.add(remoteSid);
 
-            const processedEvent = createEvent(eventData);
-            processedEvent.priorityScore = calculatePriorityScore(processedEvent);
+            let localIdToUpdate = serverIdMap.get(remoteSid);
 
-            if (existingMap.has(key)) {
-                // Update existing event — merge, don't overwrite blindly
-                const existingId = existingMap.get(key);
-                await db.events.update(existingId, {
-                    ...processedEvent,
-                    updatedAt: new Date()
-                });
-                updatedCount++;
+            // Fallback: If no ServerID match, try Name Match (Legacy)
+            if (!localIdToUpdate) {
+                const legacyKey = `${processed.eventName}__${processed.collegeName}`.toLowerCase();
+                if (nameMap.has(legacyKey)) {
+                    localIdToUpdate = nameMap.get(legacyKey);
+                }
+            }
+
+            if (localIdToUpdate) {
+                // UPDATE existing local event
+                const localEvent = existingEvents.find(e => e.id === localIdToUpdate);
+
+                // Preserve local data that isn't in cloud
+                if (localEvent?.posterBlob && !processed.posterBlob) {
+                    processed.posterBlob = localEvent.posterBlob;
+                }
+
+                // IMPORTANT: Keep the Local ID intact!
+                // Also ensure we attach the ServerID if the local copy didn't have one
+                await db.events.update(localIdToUpdate, { ...processed, id: localIdToUpdate, serverId: remoteSid });
+                updated++;
             } else {
-                // Add as new event
-                const newId = await db.events.add(processedEvent);
-                existingMap.set(key, newId); // Prevent re-adding if same key appears again
-                addedCount++;
+                // ADD new event locally
+                // Ensure 'id' is undefined so Dexie auto-increments
+                delete processed.id;
+                await db.events.add(processed);
+                added++;
             }
         }
 
-        return { added: addedCount, updated: updatedCount };
+        // Handle deletions if overwrite is enabled
+        if (overwrite) {
+            // Delete any local event that has a ServerID BUT is not in the remote batch
+            for (const e of existingEvents) {
+                if (e.serverId && !currentServerIds.has(e.serverId)) {
+                    await db.events.delete(e.id);
+                }
+            }
+        }
+
+        return { added, updated };
     });
 };
 
-// Export to CSV
-export const exportEventsToCSV = async () => {
-    const events = await db.events.toArray();
-    return events.map(event => ({
-        'College Name': event.collegeName,
-        'Event Name': event.eventName,
-        'Event Type': event.eventType,
-        'Registration Deadline': event.registrationDeadline.toISOString().split('T')[0],
-        'Start Date': event.startDate.toISOString().split('T')[0],
-        'End Date': event.endDate.toISOString().split('T')[0],
-        'Prize Amount': event.prizeAmount,
-        'Registration Fee': event.registrationFee,
-        'Accommodation': event.accommodation ? 'Yes' : 'No',
-        'Location': event.location,
-        'Online': event.isOnline ? 'Yes' : 'No',
-        'Status': event.status,
-        'Priority Score': event.priorityScore,
-        'Website': event.website,
-        'Description': event.description || '',
-        'Team Size': event.teamSize || 1,
-        'Eligibility': event.eligibility || '',
-        'Leader': event.leader || '',
-        'Members': event.members || '',
-        'No of Teams': event.noOfTeams || '',
-        'Prize Won': event.prizeWon || '',
-        'Contact 1': event.contact1 || '',
-        'Contact 2': event.contact2 || '',
-        'Poster URL': event.posterUrl || '',
-        'Contact Numbers': (event.contactNumbers || []).join(', ')
-    }));
-};
-
-// Update all event statuses (run daily) - Optimized version
+/**
+ * UTILITY: Run maintenance (update statuses of all events based on current time)
+ */
 export const updateAllEventStatuses = async () => {
     const events = await db.events.toArray();
-    const updates = [];
-
     for (const event of events) {
-        // Skip auto-updates for terminal statuses
-        if (event.status === EventStatus.WON || event.status === EventStatus.BLOCKED) {
-            continue;
-        }
+        // Skip manual statuses
+        if (MANUAL_STATUSES.includes(event.status)) continue;
 
-        const newStatus = calculateStatus(
-            event.registrationDeadline,
-            event.startDate,
-            event.endDate
-        );
-
-        const newPriorityScore = calculatePriorityScore(event);
-
-        if (newStatus !== event.status || newPriorityScore !== event.priorityScore) {
-            updates.push({
-                id: event.id,
-                changes: {
-                    status: newStatus,
-                    priorityScore: newPriorityScore,
-                    updatedAt: new Date()
-                }
-            });
+        const newStatus = calculateStatus(event.registrationDeadline, event.startDate, event.endDate);
+        if (newStatus !== event.status) {
+            await db.events.update(event.id, { status: newStatus });
         }
     }
+};
 
-    if (updates.length > 0) {
-        await db.transaction('rw', db.events, async () => {
-            const promises = updates.map(u => db.events.update(u.id, u.changes));
-            await Promise.all(promises);
-        });
-    }
-    return updates.length;
+/**
+ * UTILITY: Export all events from the local database.
+ */
+export const exportEventsToCSV = async () => {
+    return await db.events.toArray();
+};
+
+/**
+ * UTILITY: Clear everything in the local database.
+ */
+export const purgeDatabase = async () => {
+    await db.events.clear();
+    await db.colleges.clear();
+    await db.notes.clear();
 };

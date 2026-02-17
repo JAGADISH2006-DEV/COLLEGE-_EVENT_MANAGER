@@ -1,33 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
-import { db, updateEvent, EventType } from '../db';
-import { X, Save, Sparkles } from 'lucide-react';
+import { db, updateEvent, EventType, EventStatus } from '../db';
+import { X, Save, Sparkles, Image as ImageIcon, Link as LinkIcon, Calendar, Trophy, MapPin, Users, Phone, User, Info, Check } from 'lucide-react';
 import { cn } from '../utils';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const PreviewImage = ({ blob }) => {
-    const [url, setUrl] = useState(null);
+const PreviewImage = ({ blob, url }) => {
+    const [displayUrl, setDisplayUrl] = useState(null);
 
     useEffect(() => {
-        if (!(blob instanceof Blob)) return;
-        const newUrl = URL.createObjectURL(blob);
-        setUrl(newUrl);
-        return () => URL.revokeObjectURL(newUrl);
-    }, [blob]);
+        if (blob instanceof Blob) {
+            const newUrl = URL.createObjectURL(blob);
+            setDisplayUrl(newUrl);
+            return () => URL.revokeObjectURL(newUrl);
+        } else if (url) {
+            setDisplayUrl(url);
+        } else {
+            setDisplayUrl(null);
+        }
+    }, [blob, url]);
 
-    if (!url) return null;
-    return <img src={url} alt="Preview" className="h-32 w-auto rounded-lg shadow-md" />;
+    if (!displayUrl) return (
+        <div className="w-full h-40 bg-slate-100 dark:bg-slate-800 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700">
+            <ImageIcon size={32} className="text-slate-300 mb-2" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">No Image Preview</span>
+        </div>
+    );
+
+    return (
+        <div className="relative group overflow-hidden rounded-2xl shadow-xl">
+            <img src={displayUrl} alt="Preview" className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black uppercase text-slate-900 border border-white">Current Selection</span>
+            </div>
+        </div>
+    );
+};
+
+// Helper: Format date for input[type="date"] (YYYY-MM-DD)
+// Uses local time to prevent "previous day" shift
+const formatDateForInput = (dateVal) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    // Adjust for timezone offset to ensure we get the local YYYY-MM-DD
+    const offset = d.getTimezoneOffset() * 60000;
+    const localDate = new Date(d.getTime() - offset);
+    return localDate.toISOString().split('T')[0];
 };
 
 const EditEventModal = () => {
     const modals = useAppStore((state) => state.modals);
     const closeModal = useAppStore((state) => state.closeModal);
-    const selectedEventId = useAppStore((state) => state.selectedEventId);
+    const selectedEvent = useAppStore((state) => state.selectedEvent);
     const isOpen = modals.editEvent;
+    const modalRef = useRef(null);
 
     const event = useLiveQuery(
-        () => selectedEventId ? db.events.get(selectedEventId) : null,
-        [selectedEventId]
+        () => selectedEvent ? db.events.get(selectedEvent) : null,
+        [selectedEvent]
     );
 
     const [formData, setFormData] = useState({
@@ -55,10 +86,13 @@ const EditEventModal = () => {
         leader: '',
         members: '',
         noOfTeams: '',
-        prizeWon: ''
+        noOfTeams: '',
+        prizeWon: '',
+        teamName: ''
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState('basic'); // 'basic', 'logistics', 'team', 'media'
 
     useEffect(() => {
         if (event) {
@@ -66,9 +100,9 @@ const EditEventModal = () => {
                 collegeName: event.collegeName || '',
                 eventName: event.eventName || '',
                 eventType: event.eventType || EventType.HACKATHON,
-                registrationDeadline: event.registrationDeadline ? new Date(event.registrationDeadline).toISOString().split('T')[0] : '',
-                startDate: event.startDate ? new Date(event.startDate).toISOString().split('T')[0] : '',
-                endDate: event.endDate ? new Date(event.endDate).toISOString().split('T')[0] : '',
+                registrationDeadline: event.registrationDeadline ? formatDateForInput(event.registrationDeadline) : '',
+                startDate: event.startDate ? formatDateForInput(event.startDate) : '',
+                endDate: event.endDate ? formatDateForInput(event.endDate) : '',
                 prizeAmount: event.prizeAmount || '',
                 registrationFee: event.registrationFee || '',
                 accommodation: !!event.accommodation,
@@ -81,29 +115,25 @@ const EditEventModal = () => {
                 description: event.description || '',
                 teamSize: event.teamSize || '1',
                 eligibility: event.eligibility || '',
-                status: event.status || '',
+                status: event.status || 'Open',
                 contact1: event.contact1 || '',
                 contact2: event.contact2 || '',
                 leader: event.leader || '',
                 members: event.members || '',
                 noOfTeams: event.noOfTeams || '',
-                prizeWon: event.prizeWon || ''
+                prizeWon: event.prizeWon || '',
+                teamName: event.teamName || ''
             });
         }
     }, [event]);
 
-    // Auto-scroll to top when modal opens
     useEffect(() => {
         if (isOpen) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
         }
-
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
+        return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen]);
 
     const handleChange = (e) => {
@@ -112,6 +142,12 @@ const EditEventModal = () => {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setFormData(prev => ({ ...prev, posterBlob: e.target.files[0] }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -130,7 +166,7 @@ const EditEventModal = () => {
                 endDate: new Date(formData.endDate)
             };
 
-            await updateEvent(selectedEventId, updates);
+            await updateEvent(selectedEvent, updates);
             closeModal('editEvent');
         } catch (error) {
             console.error('ERROR UPDATING EVENT:', error);
@@ -142,400 +178,313 @@ const EditEventModal = () => {
 
     if (!isOpen || !event) return null;
 
-    return (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                <div
-                    className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-                    onClick={() => closeModal('editEvent')}
-                ></div>
+    const tabs = [
+        { id: 'basic', label: 'General', icon: Info },
+        { id: 'logistics', label: 'Logistics', icon: MapPin },
+        { id: 'team', label: 'Team Info', icon: Users },
+        { id: 'media', label: 'Poster & Web', icon: ImageIcon }
+    ];
 
-                <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-200 dark:border-slate-700">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-700">
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                                <Sparkles className="text-indigo-500" size={24} />
-                                Edit <span className="text-indigo-600">Event</span>
-                            </h3>
-                            <p className="text-sm text-slate-500 font-medium mt-1">Update details for {event.eventName}</p>
-                        </div>
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                onClick={() => closeModal('editEvent')}
+            />
+
+            <motion.div
+                layoutId="editModal"
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-[95%] sm:max-w-2xl lg:max-w-4xl bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-white/20 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+                {/* Header Section */}
+                <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 p-6 sm:p-8 text-white relative">
+                    <div className="absolute top-0 right-0 p-4 sm:p-8">
                         <button
                             onClick={() => closeModal('editEvent')}
-                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-400"
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all border border-white/20"
                         >
-                            <X size={24} />
+                            <X size={18} className="sm:size-5" />
                         </button>
                     </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="px-8 py-6 max-h-[70vh] overflow-y-auto">
-                        <div className="space-y-6">
-                            {/* Basic Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Event Name *</label>
-                                    <input
-                                        type="text"
-                                        name="eventName"
-                                        value={formData.eventName}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                        placeholder="CODE-THON '24"
-                                    />
+                    <div className="flex items-center gap-3 sm:gap-4 mb-1">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                            <Sparkles size={20} className="sm:size-6 text-indigo-200" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl sm:text-3xl font-black tracking-tight">Edit <span className="text-indigo-200 uppercase text-[10px] sm:text-sm font-black tracking-[0.2em] ml-2">Event</span></h2>
+                            <p className="opacity-70 text-[10px] sm:text-sm font-semibold tracking-wide truncate max-w-[200px] sm:max-w-md">Updating {event.eventName}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tab Navigation */}
+                <div className="flex items-center gap-2 px-4 sm:px-8 py-3 sm:py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all shrink-0",
+                                    isActive
+                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 -translate-y-0.5 sm:-translate-y-1"
+                                        : "text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"
+                                )}
+                            >
+                                <Icon size={12} className="sm:size-3.5" strokeWidth={3} />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Form Content */}
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="space-y-8"
+                        >
+                            {activeTab === 'basic' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-6">
+                                        <div className="form-group">
+                                            <label className="label-premium">Event Name</label>
+                                            <input type="text" name="eventName" value={formData.eventName} onChange={handleChange} required className="input-premium" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="label-premium">College Name</label>
+                                            <input type="text" name="collegeName" value={formData.collegeName} onChange={handleChange} required className="input-premium" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="form-group">
+                                                <label className="label-premium">Category</label>
+                                                <select name="eventType" value={formData.eventType} onChange={handleChange} required className="input-premium">
+                                                    {Object.values(EventType).map(t => <option key={t} value={t}>{t}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="label-premium">Status</label>
+                                                <select name="status" value={formData.status} onChange={handleChange} className="input-premium">
+                                                    {Object.values(EventStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <Calendar size={18} className="text-indigo-600" />
+                                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Event Timeline</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div className="form-group">
+                                                <label className="label-premium text-[10px]">Registration Deadline</label>
+                                                <input type="date" name="registrationDeadline" value={formData.registrationDeadline} onChange={handleChange} required className="input-premium bg-white dark:bg-slate-900" />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="form-group">
+                                                    <label className="label-premium text-[10px]">Start Date</label>
+                                                    <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} required className="input-premium bg-white dark:bg-slate-900" />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label className="label-premium text-[10px]">End Date</label>
+                                                    <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} required className="input-premium bg-white dark:bg-slate-900" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+                            )}
 
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">College Name *</label>
-                                    <input
-                                        type="text"
-                                        name="collegeName"
-                                        value={formData.collegeName}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                        placeholder="ABC Engineering College"
-                                    />
+                            {activeTab === 'logistics' && (
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-6">
+                                            <div className="form-group">
+                                                <label className="label-premium">Grand Prize (₹)</label>
+                                                <div className="relative">
+                                                    <Trophy className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500" size={18} />
+                                                    <input type="number" name="prizeAmount" value={formData.prizeAmount} onChange={handleChange} className="input-premium pl-12 text-lg font-black text-amber-600" placeholder="0" />
+                                                </div>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="label-premium">Registration Fee (₹)</label>
+                                                <input type="number" name="registrationFee" value={formData.registrationFee} onChange={handleChange} className="input-premium" placeholder="0" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-6">
+                                            <div className="form-group">
+                                                <label className="label-premium">Venue / Coordinates</label>
+                                                <div className="relative">
+                                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500" size={18} />
+                                                    <input type="text" name="location" value={formData.location} onChange={handleChange} className="input-premium pl-12" placeholder="Venue Name" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                <label className="flex-1 flex items-center justify-center gap-3 cursor-pointer py-3 rounded-xl hover:bg-white dark:hover:bg-slate-900 transition-all border-2 border-transparent has-[:checked]:border-indigo-600 group">
+                                                    <input type="checkbox" name="isOnline" checked={formData.isOnline} onChange={handleChange} className="hidden" />
+                                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all", formData.isOnline ? "border-indigo-600 bg-indigo-600" : "border-slate-300")}>
+                                                        {formData.isOnline && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300">Remote / Online</span>
+                                                </label>
+                                                <label className="flex-1 flex items-center justify-center gap-3 cursor-pointer py-3 rounded-xl hover:bg-white dark:hover:bg-slate-900 transition-all border-2 border-transparent has-[:checked]:border-indigo-600 group">
+                                                    <input type="checkbox" name="accommodation" checked={formData.accommodation} onChange={handleChange} className="hidden" />
+                                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all", formData.accommodation ? "border-indigo-600 bg-indigo-600" : "border-slate-300")}>
+                                                        {formData.accommodation && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300">Stay Provided</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium">Eligibility / Criteria</label>
+                                        <textarea name="eligibility" value={formData.eligibility} onChange={handleChange} rows="2" className="input-premium resize-none pt-4" placeholder="Who can participate? e.g. 'Engineering Students Only'"></textarea>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="label-premium">Description</label>
+                                        <textarea name="description" value={formData.description} onChange={handleChange} rows="4" className="input-premium min-h-[120px] resize-none pt-4" placeholder="Brief about the event..."></textarea>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Event Type *</label>
-                                    <select
-                                        name="eventType"
-                                        value={formData.eventType}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                    >
-                                        {Object.values(EventType).map(type => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
-                                    </select>
+                            {activeTab === 'team' && (
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-6">
+                                            <div className="form-group">
+                                                <label className="label-premium">Team Leader Name</label>
+                                                <div className="relative">
+                                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={18} />
+                                                    <input type="text" name="leader" value={formData.leader} onChange={handleChange} className="input-premium pl-12" placeholder="Leader Name" />
+                                                </div>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="label-premium">Team Members</label>
+                                                <div className="relative">
+                                                    <Users className="absolute left-4 top-[1.25rem] text-indigo-500" size={18} />
+                                                    <textarea name="members" value={formData.members} onChange={handleChange} rows="2" className="input-premium pl-12 pt-4 resize-none" placeholder="Member Names (comma separated)"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-6">
+                                            <div className="form-group">
+                                                <label className="label-premium">Team Size</label>
+                                                <input type="number" name="teamSize" value={formData.teamSize} onChange={handleChange} className="input-premium" min="1" />
+                                            </div>
+                                            {parseInt(formData.teamSize) > 1 && (
+                                                <div className="form-group">
+                                                    <label className="label-premium">Team Name</label>
+                                                    <input type="text" name="teamName" value={formData.teamName} onChange={handleChange} className="input-premium" placeholder="e.g. The Avengers" />
+                                                </div>
+                                            )}
+                                            <div className="form-group">
+                                                <label className="label-premium">Teams from Dept</label>
+                                                <input type="text" name="noOfTeams" value={formData.noOfTeams} onChange={handleChange} className="input-premium" placeholder="e.g. 2 Teams" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 bg-slate-900 rounded-3xl text-white">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <Phone size={18} className="text-indigo-400" />
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">Contact Details</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input type="text" name="contact1" value={formData.contact1} onChange={handleChange} className="bg-slate-800 border-0 rounded-2xl px-5 py-3 font-mono text-sm focus:ring-2 ring-indigo-500 outline-none" placeholder="Priority Contact" />
+                                            <input type="text" name="contact2" value={formData.contact2} onChange={handleChange} className="bg-slate-800 border-0 rounded-2xl px-5 py-3 font-mono text-sm focus:ring-2 ring-indigo-500 outline-none" placeholder="Secondary Contact" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Current Status</label>
-                                    <select
-                                        name="status"
-                                        value={formData.status}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                    >
-                                        {['Open', 'Closed', 'Attended', 'Won', 'Blocked'].map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Dates */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Deadline *</label>
-                                    <input
-                                        type="date"
-                                        name="registrationDeadline"
-                                        value={formData.registrationDeadline}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Start Date *</label>
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={formData.startDate}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">End Date *</label>
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={formData.endDate}
-                                        onChange={handleChange}
-                                        required
-                                        className="input-premium"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Prize & Fee */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Prize Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="prizeAmount"
-                                        value={formData.prizeAmount}
-                                        onChange={handleChange}
-                                        className="input-premium text-emerald-600 font-bold"
-                                        placeholder="50000"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Reg Fee (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="registrationFee"
-                                        value={formData.registrationFee}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Location</label>
-                                    <input
-                                        type="text"
-                                        name="location"
-                                        value={formData.location}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="Bangalore"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Team Size</label>
-                                    <input
-                                        type="number"
-                                        name="teamSize"
-                                        value={formData.teamSize}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        min="1"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex gap-8 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        name="isOnline"
-                                        checked={formData.isOnline}
-                                        onChange={handleChange}
-                                        className="w-5 h-5 text-indigo-600 rounded-lg focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer"
-                                    />
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">Online Event</span>
-                                </label>
-
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        name="accommodation"
-                                        checked={formData.accommodation}
-                                        onChange={handleChange}
-                                        className="w-5 h-5 text-indigo-600 rounded-lg focus:ring-indigo-500 border-slate-300 transition-all cursor-pointer"
-                                    />
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">Accommodation</span>
-                                </label>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Contact Numbers</label>
-                                <input
-                                    type="text"
-                                    name="contactNumbers"
-                                    value={formData.contactNumbers}
-                                    onChange={handleChange}
-                                    className="input-premium"
-                                    placeholder="9876543210, 9876543211"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Website URL</label>
-                                <input
-                                    type="url"
-                                    name="website"
-                                    value={formData.website}
-                                    onChange={handleChange}
-                                    className="input-premium"
-                                    placeholder="https://example.com/register"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Current/New Poster (Upload)</label>
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                                        {formData.posterBlob || event.posterBlob ? (
-                                            <div className="relative inline-block">
-                                                <PreviewImage blob={formData.posterBlob || event.posterBlob} />
+                            {activeTab === 'media' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    <div className="space-y-6">
+                                        <div className="form-group">
+                                            <label className="label-premium">Visual Asset (Poster)</label>
+                                            <PreviewImage blob={formData.posterBlob} url={formData.posterUrl} />
+                                            <div className="mt-4 flex gap-4">
+                                                <label className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest text-center cursor-pointer hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">
+                                                    Upload File
+                                                    <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                                                </label>
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData(prev => ({ ...prev, posterBlob: null }))}
-                                                    className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg"
+                                                    className="px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 transition-all border border-slate-200 dark:border-slate-700"
                                                 >
-                                                    <X size={12} />
+                                                    Clear
                                                 </button>
                                             </div>
-                                        ) : (
-                                            <div className="text-center py-4">
-                                                <label className="cursor-pointer text-indigo-600 font-bold hover:text-indigo-500 transition-colors">
-                                                    <span>Upload new poster</span>
-                                                    <input
-                                                        type="file"
-                                                        className="hidden"
-                                                        onChange={(e) => setFormData(prev => ({ ...prev, posterBlob: e.target.files[0] }))}
-                                                        accept="image/*"
-                                                    />
-                                                </label>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="label-premium">Remote Asset URL</label>
+                                            <div className="relative">
+                                                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                                <input type="url" name="posterUrl" value={formData.posterUrl} onChange={handleChange} className="input-premium pl-12 text-xs" placeholder="https://cdn.example.com/poster.jpg" />
                                             </div>
-                                        )}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-6">
+                                        <div className="form-group">
+                                            <label className="label-premium">Neural Link (Website)</label>
+                                            <div className="relative">
+                                                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={18} />
+                                                <input type="url" name="website" value={formData.website} onChange={handleChange} className="input-premium pl-12" placeholder="https://event.com/register" />
+                                            </div>
+                                        </div>
+                                        <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-[2rem] border-2 border-dashed border-indigo-200 dark:border-indigo-800">
+                                            <div className="flex flex-col items-center text-center">
+                                                <Sparkles className="text-indigo-600 mb-3" size={32} />
+                                                <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400 mb-2">Smart Discovery Tip</h4>
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">Ensure the website URL is correct. The system uses this to fetch real-time updates for your squad.</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+                </form>
 
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Poster Image URL (Alternative)</label>
-                                    <input
-                                        type="url"
-                                        name="posterUrl"
-                                        value={formData.posterUrl}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="https://example.com/poster.jpg"
-                                    />
-                                </div>
-                            </div>
-
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Contact - 1</label>
-                                    <input
-                                        type="text"
-                                        name="contact1"
-                                        value={formData.contact1}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="9876543210"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Contact - 2</label>
-                                    <input
-                                        type="text"
-                                        name="contact2"
-                                        value={formData.contact2}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="9876543211"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Leader Name</label>
-                                    <input
-                                        type="text"
-                                        name="leader"
-                                        value={formData.leader}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="John Doe"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Members Count/Names</label>
-                                    <input
-                                        type="text"
-                                        name="members"
-                                        value={formData.members}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="Alice, Bob, Charlie"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">No. of Teams</label>
-                                    <input
-                                        type="text"
-                                        name="noOfTeams"
-                                        value={formData.noOfTeams}
-                                        onChange={handleChange}
-                                        className="input-premium"
-                                        placeholder="3 Teams"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Price/Prize Won</label>
-                                    <input
-                                        type="text"
-                                        name="prizeWon"
-                                        value={formData.prizeWon}
-                                        onChange={handleChange}
-                                        className="input-premium text-emerald-600 font-bold"
-                                        placeholder="Winner / Runner"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Description</label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    rows="4"
-                                    className="input-premium resize-none"
-                                    placeholder="Event details..."
-                                ></textarea>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 block">Eligibility</label>
-                                <input
-                                    type="text"
-                                    name="eligibility"
-                                    value={formData.eligibility}
-                                    onChange={handleChange}
-                                    className="input-premium"
-                                    placeholder="B.Tech students"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex justify-end gap-3 mt-10 pt-6 border-t border-slate-100 dark:border-slate-700">
-                            <button
-                                type="button"
-                                onClick={() => closeModal('editEvent')}
-                                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
-                            >
-                                <Save size={18} />
-                                {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </form>
+                {/* Footer Actions */}
+                <div className="px-8 py-6 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => closeModal('editEvent')}
+                        className="px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-700 text-white rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3 border border-white/20"
+                    >
+                        {isSubmitting ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Save size={18} />
+                        )}
+                        Save Changes
+                    </button>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };
