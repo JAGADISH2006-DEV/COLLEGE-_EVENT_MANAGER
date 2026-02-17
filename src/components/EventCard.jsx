@@ -72,7 +72,7 @@ const PosterImage = ({ event }) => {
     );
 };
 
-const EventCard = React.memo(({ event }) => {
+const EventCard = React.memo(({ event, compact = false }) => {
     const setSelectedEvent = useAppStore((state) => state.setSelectedEvent);
     const openModal = useAppStore((state) => state.openModal);
     const togglePinnedEvent = useAppStore((state) => state.togglePinnedEvent);
@@ -131,7 +131,7 @@ const EventCard = React.memo(({ event }) => {
             )}
         >
             {/* Left: Poster Image */}
-            <div className="relative w-full sm:w-40 sm:shrink-0 h-48 sm:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800">
+            <div className={cn("relative w-full sm:shrink-0 h-48 sm:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800", compact ? "sm:w-40" : "sm:w-64")}>
                 <PosterImage event={event} statusConfig={statusConfig} />
 
                 {/* Priority Score Overlay */}

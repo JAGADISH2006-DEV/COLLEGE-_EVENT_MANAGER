@@ -306,10 +306,10 @@ const Analytics = () => {
 
                             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/20">
                                 {filteredEvents.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-fr">
+                                    <div className="grid grid-cols-1 gap-6 auto-rows-fr">
                                         {filteredEvents.map((event) => (
                                             <div key={event.id} className="transform transition-transform hover:scale-[1.01] h-full">
-                                                <EventCard event={event} />
+                                                <EventCard event={event} compact={true} />
                                             </div>
                                         ))}
                                     </div>
