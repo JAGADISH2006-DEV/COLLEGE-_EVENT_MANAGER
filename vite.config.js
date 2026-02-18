@@ -92,8 +92,9 @@ export default defineConfig({
         minify: 'terser',
         terserOptions: {
             compress: {
-                drop_console: true, // Remove console logs in production
-                drop_debugger: true
+                drop_debugger: true,
+                // Only drop console.log (keep console.error/warn for production debugging)
+                pure_funcs: ['console.log']
             }
         },
         // Source maps for debugging (disable in production for smaller bundle)

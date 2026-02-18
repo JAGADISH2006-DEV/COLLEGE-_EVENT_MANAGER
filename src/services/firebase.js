@@ -137,7 +137,7 @@ export const updateUserRole = async (uid, role) => {
  * FIRESTORE: Sets up a real-time listener for event changes.
  * Whenever anyone updates an event, this function calls the callback with the new data.
  */
-export const subscribeToEvents = (callback) => {
+export const subscribeToEvents = (callback, onError) => {
     if (!db) return null;
     const eventsRef = collection(db, "events");
     const q = query(eventsRef, orderBy("createdAt", "desc"));
@@ -154,7 +154,12 @@ export const subscribeToEvents = (callback) => {
                 id: undefined
             };
         });
+        console.log(`[Firebase] Real-time snapshot: ${events.length} events received.`);
         callback(events); // Send the updated list back to the app
+    }, (error) => {
+        // CRITICAL: Handle permission denied and other Firestore errors
+        console.error('[Firebase] Real-time listener error:', error.code, error.message);
+        if (onError) onError(error);
     });
 };
 

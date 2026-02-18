@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { db, updateAllEventStatuses } from './db';
 import { useAppStore } from './store';
 import { initNotificationSystem } from './notifications';
-import { initFirebase, subscribeToEvents } from './services/firebase';
+import { initFirebase, subscribeToEvents, getUserRole } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // --- EAGERLY LOADED COMPONENTS (Essential for fast first paint) ---
@@ -81,7 +81,7 @@ function App() {
     }, [theme]);
 
     /**
-     * EFFECT: Initialize Firebase & Real-time Sync
+     * EFFECT: Initialize Firebase & Listen for Auth Changes
      * This is the "Engine Room" of the application connectivity.
      */
     useEffect(() => {
@@ -89,32 +89,66 @@ function App() {
         const firebaseData = initFirebase(firebaseConfig);
 
         // Step 2: Listen for User Login / Logout changes
-        const unsubscribeAuth = firebaseData ? onAuthStateChanged(firebaseData.auth, (firebaseUser) => {
+        const unsubscribeAuth = firebaseData ? onAuthStateChanged(firebaseData.auth, async (firebaseUser) => {
             setUser(firebaseUser); // Sync user status to the store
+
+            // Step 2b: Fetch user role from Firestore on auto-login (new device/session restore)
+            if (firebaseUser) {
+                try {
+                    const role = await getUserRole(firebaseUser.uid);
+                    useAppStore.getState().setUserRole(role);
+                    console.log('[Auth] User role synced:', role);
+                } catch (err) {
+                    console.error('[Auth] Failed to fetch user role:', err);
+                }
+            }
+
             setIsLoading(false);
         }) : (() => {
             setIsLoading(false);
             return () => { };
         })();
 
-        // Step 3: Start Real-time Sync if user is logged in
-        let unsubscribeSync = null;
-        if (cloudProvider === 'firestore' && firebaseData) {
-            // Subscribe to cloud changes
-            unsubscribeSync = subscribeToEvents(async (remoteEvents) => {
-                const { bulkImportEvents } = await import('./db');
-                // When cloud data changes, update our local browser database
-                // We use overwrite: true to ensure orphaned Google Sheets data is removed
-                await bulkImportEvents(remoteEvents, true);
-            });
-        }
-
-        // Cleanup function (runs when app unmounts)
         return () => {
             if (unsubscribeAuth) unsubscribeAuth();
+        };
+    }, [firebaseConfig, setUser]);
+
+    /**
+     * EFFECT: Real-time Data Sync
+     * Only starts AFTER auth is confirmed (isLoading === false) and user is logged in.
+     */
+    useEffect(() => {
+        if (isLoading || !user || cloudProvider !== 'firestore') return;
+
+        // Re-retrieve the initialized instance (safe to call multiple times)
+        const firebaseData = initFirebase(firebaseConfig);
+        if (!firebaseData) return;
+
+        console.log('[Sync] Starting real-time sync for user:', user.email);
+
+        // Subscribe to cloud changes with error handling
+        const unsubscribeSync = subscribeToEvents(
+            async (remoteEvents) => {
+                console.log(`[Sync] Received ${remoteEvents.length} events from cloud.`);
+                const { bulkImportEvents } = await import('./db');
+                // When cloud data changes, update our local browser database
+                // overwrite: true ensures local DB mirrors the cloud exactly
+                await bulkImportEvents(remoteEvents, true);
+            },
+            (error) => {
+                console.error('[Sync] Firestore listener failed:', error.message);
+                // If permission denied, the user might need to re-login
+                if (error.code === 'permission-denied') {
+                    console.warn('[Sync] Permission denied. User may need to re-authenticate.');
+                }
+            }
+        );
+
+        return () => {
             if (unsubscribeSync) unsubscribeSync();
         };
-    }, [firebaseConfig, cloudProvider, setUser]);
+    }, [isLoading, user, cloudProvider, firebaseConfig]);
 
     /**
      * EFFECT: System Maintenance
