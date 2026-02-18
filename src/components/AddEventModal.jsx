@@ -163,37 +163,37 @@ const AddEventModal = () => {
     ];
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => closeModal('addEvent')} />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-[0_64px_128px_-24px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden flex flex-col max-h-[95vh]"
+                className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-[2rem] md:rounded-[3rem] shadow-[0_64px_128px_-24px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden flex flex-col max-h-[100vh] sm:max-h-[95vh]"
             >
                 {/* Header Subsystem */}
-                <div className="bg-slate-900 p-8 text-white relative flex items-center justify-between border-b border-white/10">
+                <div className="bg-slate-900 p-4 sm:p-8 text-white relative flex items-center justify-between border-b border-white/10">
                     <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 border border-white/20">
-                            <Plus size={28} strokeWidth={3} className="text-white" />
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 border border-white/20">
+                            <Plus size={22} strokeWidth={3} className="text-white" />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black tracking-tight leading-none mb-1">Add <span className="text-indigo-400">Event</span></h2>
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Create a new event entry</p>
+                            <h2 className="text-xl sm:text-3xl font-black tracking-tight leading-none mb-1">Add <span className="text-indigo-400">Event</span></h2>
+                            <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest">Create a new event entry</p>
                         </div>
                     </div>
-                    <button onClick={() => closeModal('addEvent')} className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 transition-all">
+                    <button onClick={() => closeModal('addEvent')} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 transition-all">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="flex items-center gap-2 px-8 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3 sm:py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
                     {tabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0", isActive ? "bg-slate-900 text-white shadow-xl -translate-y-1" : "text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800")}>
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all shrink-0", isActive ? "bg-slate-900 text-white shadow-xl -translate-y-0.5 sm:-translate-y-1" : "text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800")}>
                                 <Icon size={14} strokeWidth={3} /> {tab.label}
                             </button>
                         );
@@ -201,10 +201,10 @@ const AddEventModal = () => {
                 </div>
 
                 {/* Tactical Input Matrix */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8">
                     <form id="add-event-form" onSubmit={handleSubmit}>
-                        <div className={cn("space-y-10", activeTab === 'basic' ? 'block' : 'hidden')}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <div className={cn("space-y-6 sm:space-y-10", activeTab === 'basic' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
                                 <div className="space-y-6">
                                     <div className="form-group">
                                         <label className="label-premium">Event Name</label>
@@ -260,8 +260,8 @@ const AddEventModal = () => {
                             </div>
                         </div>
 
-                        <div className={cn("space-y-10", activeTab === 'logistics' ? 'block' : 'hidden')}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <div className={cn("space-y-6 sm:space-y-10", activeTab === 'logistics' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
                                 <div className="space-y-6">
                                     <div className="form-group">
                                         <label className="label-premium">Event Venue</label>
@@ -304,8 +304,8 @@ const AddEventModal = () => {
                             </div>
                         </div>
 
-                        <div className={cn("space-y-10", activeTab === 'team' ? 'block' : 'hidden')}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <div className={cn("space-y-6 sm:space-y-10", activeTab === 'team' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
                                 <div className="space-y-8">
                                     <div className="form-group">
                                         <label className="label-premium">Team Leader Name</label>
@@ -327,8 +327,8 @@ const AddEventModal = () => {
                             </div>
                         </div>
 
-                        <div className={cn("space-y-10", activeTab === 'ai' ? 'block' : 'hidden')}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div className={cn("space-y-6 sm:space-y-10", activeTab === 'ai' ? 'block' : 'hidden')}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12">
                                 <div className="space-y-6">
                                     <label className="label-premium">Event Poster AI Scan</label>
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center min-h-[250px] relative group overflow-hidden">
@@ -361,9 +361,9 @@ const AddEventModal = () => {
                 </div>
 
                 {/* Modal Actions */}
-                <div className="px-10 py-8 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-6">
+                <div className="px-4 sm:px-10 py-4 sm:py-8 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 sm:gap-6">
                     <button type="button" onClick={() => closeModal('addEvent')} className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Cancel</button>
-                    <button onClick={handleSubmit} disabled={isSubmitting} className="px-12 h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4">
+                    <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 sm:px-12 h-12 sm:h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl sm:rounded-2xl font-black text-xs uppercase tracking-wider sm:tracking-[0.4em] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 sm:gap-4">
                         {isSubmitting ? <div className="w-5 h-5 border-4 border-slate-400 border-t-white rounded-full animate-spin" /> : <><Save size={20} /> Save Event</>}
                     </button>
                 </div>

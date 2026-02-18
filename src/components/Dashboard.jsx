@@ -15,8 +15,8 @@ const StatCard = ({ title, value, icon: Icon, color, delay, trend }) => (
         transition={{ delay, type: 'spring', damping: 20 }}
         className="relative group h-full"
     >
-        <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] group-hover:shadow-[0_24px_50px_-12px_rgba(79,70,229,0.15)] transition-all duration-500" />
-        <div className="relative p-6 h-full flex flex-col justify-between overflow-hidden rounded-[2rem]">
+        <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] group-hover:shadow-[0_24px_50px_-12px_rgba(79,70,229,0.15)] transition-all duration-500" />
+        <div className="relative p-4 sm:p-6 h-full flex flex-col justify-between overflow-hidden rounded-2xl sm:rounded-[2rem]">
             <div className={cn("absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 transition-all duration-700 group-hover:scale-150 group-hover:opacity-20", color)} />
 
             <div className="flex items-center justify-between mb-6 relative z-10">
@@ -32,8 +32,8 @@ const StatCard = ({ title, value, icon: Icon, color, delay, trend }) => (
             </div>
 
             <div className="relative z-10">
-                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{title}</h3>
-                <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{value}</p>
+                <h3 className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">{title}</h3>
+                <p className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">{value}</p>
             </div>
         </div>
     </motion.div>
@@ -119,28 +119,28 @@ const Dashboard = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-24 pt-8"
+            className="pb-28 pt-4 sm:pt-8"
         >
             {/* Command Central Header */}
-            <div className="relative mb-16 overflow-hidden bg-slate-900 rounded-[3rem] p-8 md:p-12 shadow-[0_32px_80px_-20px_rgba(15,23,42,0.5)] group">
+            <div className="relative mb-8 sm:mb-16 overflow-hidden bg-slate-900 rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-[0_32px_80px_-20px_rgba(15,23,42,0.5)] group">
                 {/* Background FX */}
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/20 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2 animate-pulse" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-600/10 blur-[80px] rounded-full -translate-x-1/4 translate-y-1/4" />
 
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-10">
                     <div>
                         <motion.div
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6"
+                            className="inline-flex items-center gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-6"
                         >
                             <Target size={12} className="text-indigo-400" />
                             Command Center
                         </motion.div>
-                        <h1 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter leading-none">
+                        <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-white mb-2 sm:mb-4 tracking-tighter leading-none">
                             Hello, <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">{(user?.displayName || 'Operator').split(' ')[0]}</span>
                         </h1>
-                        <p className="text-lg text-slate-400 font-medium max-w-xl leading-relaxed">
+                        <p className="text-sm sm:text-lg text-slate-400 font-medium max-w-xl leading-relaxed">
                             {criticalDeadlines.length > 0
                                 ? `You have ${criticalDeadlines.length} events with deadlines approaching this week.`
                                 : "Your event tracker is up to date. No urgent deadlines at the moment."}
@@ -149,20 +149,20 @@ const Dashboard = () => {
 
 
 
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         {canManage && (
                             <>
                                 <button
                                     onClick={() => openModal('addEvent')}
-                                    className="px-8 h-16 bg-white text-slate-900 rounded-[1.5rem] font-black text-sm uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 group/btn overflow-hidden relative"
+                                    className="px-5 sm:px-8 h-12 sm:h-16 bg-white text-slate-900 rounded-2xl sm:rounded-[1.5rem] font-black text-xs sm:text-sm uppercase tracking-wider sm:tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 sm:gap-3 group/btn overflow-hidden relative"
                                 >
                                     <div className="absolute inset-0 bg-indigo-500 opacity-0 group-hover/btn:opacity-10 transition-opacity" />
                                     <Plus size={20} strokeWidth={3} />
-                                    Add New Event
+                                    <span className="hidden sm:inline">Add New</span> Event
                                 </button>
                                 <button
                                     onClick={() => openModal('importCSV')}
-                                    className="w-16 h-16 bg-white/10 backdrop-blur-md text-white rounded-[1.5rem] flex items-center justify-center hover:bg-white/20 transition-all border border-white/20 shadow-xl group/import"
+                                    className="w-12 h-12 sm:w-16 sm:h-16 bg-white/10 backdrop-blur-md text-white rounded-2xl sm:rounded-[1.5rem] flex items-center justify-center hover:bg-white/20 transition-all border border-white/20 shadow-xl group/import"
                                     title="Inject Data Packet (CSV)"
                                 >
                                     <FileUp className="group-hover/import:-translate-y-1 transition-transform" size={22} />
@@ -173,10 +173,10 @@ const Dashboard = () => {
                 </div>
 
                 {/* Status Bar */}
-                <div className="mt-12 pt-8 border-t border-white/10 flex flex-wrap items-center gap-8 relative z-10">
+                <div className="mt-6 sm:mt-12 pt-4 sm:pt-8 border-t border-white/10 flex flex-wrap items-center gap-4 sm:gap-8 relative z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Database Sync: Live</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-white/40 uppercase tracking-wider sm:tracking-widest">Sync: Live</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Zap size={14} className="text-amber-500" />
@@ -189,14 +189,14 @@ const Dashboard = () => {
             </div>
 
             {/* Matrix Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8 mb-10 sm:mb-20">
                 <StatCard title="Upcoming Events" value={stats?.upcoming || 0} icon={Calendar} color="bg-indigo-500" delay={0.3} trend="+4%" />
                 <StatCard title="Deadlines Today" value={stats?.upcomingDeadlines || 0} icon={Bell} color="bg-rose-500" delay={0.4} />
                 <StatCard title="Events This Week" value={stats?.thisWeek || 0} icon={Target} color="bg-emerald-500" delay={0.5} trend="New" />
                 <StatCard title="Total Prize Pool" value={`₹${((stats?.totalPrize || 0) / 1000).toFixed(0)}K`} icon={Trophy} color="bg-amber-500" delay={0.6} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-12">
                 {/* Left: Tactical Queue */}
                 <div className="lg:col-span-8 space-y-8">
                     <div className="flex items-center justify-between mb-4">
@@ -223,7 +223,7 @@ const Dashboard = () => {
                                 </motion.div>
                             ))
                         ) : (
-                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 p-20 text-center">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl sm:rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 p-10 sm:p-20 text-center">
                                 <Shield size={48} className="mx-auto text-slate-200 mb-6" />
                                 <h3 className="text-lg font-black text-slate-400 uppercase tracking-widest leading-none mb-2">No Priority Events</h3>
                                 <p className="text-slate-400 text-xs font-bold">Scanning for new opportunities...</p>
@@ -237,9 +237,9 @@ const Dashboard = () => {
                     {/* Critical Alert Module */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-rose-500 rounded-[2.5rem] blur-[30px] opacity-10 group-hover:opacity-20 transition-opacity" />
-                        <div className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] border border-rose-500/20 overflow-hidden shadow-2xl">
-                            <div className="p-8 pb-4">
-                                <div className="flex items-center justify-between mb-8">
+                        <div className="relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-rose-500/20 overflow-hidden shadow-2xl">
+                            <div className="p-5 sm:p-8 pb-4">
+                                <div className="flex items-center justify-between mb-4 sm:mb-8">
                                     <h3 className="text-xl font-black text-rose-600 flex items-center gap-3">
                                         <Clock size={24} strokeWidth={3} className="animate-pulse" />
                                         CRITICAL
@@ -275,7 +275,7 @@ const Dashboard = () => {
                                     </AnimatePresence>
                                 </div>
                             </div>
-                            <div className="p-8 pt-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                            <div className="p-5 sm:p-8 pt-4 sm:pt-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
                                 <button className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all">
                                     Analyze Risk Profiles
                                 </button>
@@ -284,7 +284,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* System Integrity Module */}
-                    <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+                    <div className="bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 text-white relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
                             <Shield size={120} />
                         </div>

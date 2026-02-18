@@ -126,12 +126,12 @@ const EventCard = React.memo(({ event, compact = false }) => {
             whileHover={{ y: -4 }}
             onClick={handleClick}
             className={cn(
-                "group relative bg-white dark:bg-slate-900 rounded-2xl cursor-pointer border transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 overflow-hidden flex flex-col sm:flex-row h-full min-h-[16rem]", // Added h-full and min-h
+                "group relative bg-white dark:bg-slate-900 rounded-xl sm:rounded-2xl cursor-pointer border transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 overflow-hidden flex flex-col sm:flex-row h-full min-h-0 sm:min-h-[16rem]",
                 isPinned ? "border-indigo-500/30 ring-2 ring-indigo-500/10" : "border-slate-100 dark:border-slate-800 hover:border-indigo-500/20"
             )}
         >
             {/* Left: Poster Image */}
-            <div className={cn("relative w-full sm:shrink-0 h-48 sm:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800", compact ? "sm:w-40" : "sm:w-64")}>
+            <div className={cn("relative w-full sm:shrink-0 h-36 sm:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800", compact ? "sm:w-40" : "sm:w-56 md:w-64")}>
                 <PosterImage event={event} statusConfig={statusConfig} />
 
                 {/* Priority Score Overlay */}
@@ -162,7 +162,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
             </div>
 
             {/* Right: Content */}
-            <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between min-w-0">
+            <div className="flex-1 p-4 sm:p-6 flex flex-col justify-between min-w-0">
 
                 {/* Header Row: Type + Actions */}
                 <div className="flex items-start justify-between mb-2">
@@ -192,7 +192,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
 
                 {/* Main Info */}
                 <div className="mb-3">
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white line-clamp-1 group-hover:text-indigo-600 transition-colors leading-tight">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white line-clamp-1 group-hover:text-indigo-600 transition-colors leading-tight">
                         {event.eventName}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1 text-slate-500 dark:text-slate-400">
@@ -202,7 +202,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
                 </div>
 
                 {/* Metadata Grid */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                     {/* Location / Mode Badge */}
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                         {event.isOnline ? <Globe size={10} /> : <MapPin size={10} />}
@@ -252,10 +252,10 @@ const EventCard = React.memo(({ event, compact = false }) => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 mt-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3 mt-auto">
                     {/* Prize */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
                             <Trophy size={14} className="text-amber-600 dark:text-amber-500" />
                         </div>
                         <div className="flex flex-col">
@@ -268,7 +268,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
 
                     {/* Team Info */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
                             <Users size={14} className="text-indigo-600 dark:text-indigo-500" />
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -281,7 +281,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
 
                     {/* Leader / Contact Info */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center shrink-0">
                             <ShieldCheck size={14} className="text-violet-600 dark:text-violet-500" />
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -294,7 +294,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
 
                     {/* Deadline */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center shrink-0">
                             <Clock size={14} className="text-rose-600 dark:text-rose-500" />
                         </div>
                         <div className="flex flex-col">
@@ -309,7 +309,7 @@ const EventCard = React.memo(({ event, compact = false }) => {
 
                     {/* Event Date */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
                             <Calendar size={14} className="text-slate-500 dark:text-slate-400" />
                         </div>
                         <div className="flex flex-col">

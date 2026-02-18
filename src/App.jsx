@@ -171,7 +171,7 @@ function App() {
             {/* Main Application (Rendered beneath splash if ready, or hidden) */}
             {!isLoading && user ? (
                 <Router>
-                    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] transition-colors duration-500 pb-20 md:pb-0">
+                    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] transition-colors duration-500 pb-24 lg:pb-0">
                         {/* Fixed Header */}
                         <div className="sticky top-0 z-[60]">
                             <Header />
@@ -189,7 +189,7 @@ function App() {
                         </Suspense>
 
                         {/* Main Content Area */}
-                        <main className="container mx-auto px-4 py-6 max-w-7xl">
+                        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl">
                             <AnimatedRoutes />
                         </main>
                     </div>

@@ -39,15 +39,15 @@ const Header = () => {
     return (
         <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 shadow-sm px-safe">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16 sm:h-20">
+                <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
                     {/* Logo */}
                     <div className="flex items-center">
-                        <Link to="/" className="flex items-center space-x-3 group">
-                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">
-                                <span className="text-white font-black text-xs uppercase tracking-tighter">JD</span>
+                        <Link to="/" className="flex items-center space-x-2 sm:space-x-3 group">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">
+                                <span className="text-white font-black text-[10px] sm:text-xs uppercase tracking-tighter">JD</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-lg font-black text-slate-900 dark:text-white leading-none tracking-tight">
+                                <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none tracking-tight">
                                     Event <span className="text-indigo-600">Manager</span>
                                 </span>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:block">Team Edition</span>
@@ -72,11 +72,11 @@ const Header = () => {
                     </nav>
 
                     {/* Actions */}
-                    <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="flex items-center space-x-1.5 sm:space-x-3">
                         {canAdd && (
                             <button
                                 onClick={() => openModal('addEvent')}
-                                className="btn btn-primary h-10 sm:h-auto px-3 sm:px-5"
+                                className="btn btn-primary h-9 sm:h-10 px-2.5 sm:px-5 text-xs"
                                 title="Add Event"
                             >
                                 <Plus size={18} />
@@ -86,7 +86,7 @@ const Header = () => {
 
                         <button
                             onClick={toggleTheme}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
                             aria-label="Toggle theme"
                         >
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
